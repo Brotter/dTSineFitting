@@ -186,7 +186,7 @@ void fitSingleSinWave(int eventNumber=-1){
     c1->Divide(1,2);
 
     c1->cd(1);
-    gr->SetTitle("Sine Wave Fitting");
+    gr->SetTitle("Sine Wave Fitting;Time(ns);Voltage(mV)");
     gr->Draw("alp");
     grFit->Draw("lpSame");
     TLegend *leg = new TLegend(0.1,0.7,0.48,0.9);
@@ -194,7 +194,11 @@ void fitSingleSinWave(int eventNumber=-1){
     leg->AddEntry(grFit,"Sine Wave Fit","lp");
     leg->Draw("same");
 
+
+    
     //also draw the "x" residuals
+    TGraph *xResiduals = new TGraph();
+    xResiduals->SetTitle("X Residuals;Time(ns);Time Residual(ns)");
     for (int pt=0; pt<gr->GetN(); pt++) {
       gr->GetPoint(pt,grX,grY);
       if (abs(grY) > 0.8*amp) {
@@ -203,6 +207,7 @@ void fitSingleSinWave(int eventNumber=-1){
 
       double xCorrection = findOffset(amp,freq,phase,offset,grX,grY);
       TArrow *temp = new TArrow(grX,grY,grX+xCorrection,grY,0.005,"|>");
+      xResiduals->SetPoint(xResiduals->GetN(),grX,xCorrection);
       temp->SetLineColor(kBlue);
       temp->SetFillColor(kBlue);
       cout << grX << " " << grX-xCorrection << endl;
@@ -213,7 +218,10 @@ void fitSingleSinWave(int eventNumber=-1){
 
 
     c1->cd(2);
-    grResid->Draw("alp");
+    //    grResid->SetTitle("Residuals;Time (ns);Voltage(mV)");
+    //    grResid->Draw("alp");
+    xResiduals->Draw("alp");
+    
   }
 
 }

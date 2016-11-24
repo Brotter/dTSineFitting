@@ -182,25 +182,13 @@ int makeOffsetHists(TFile* outFile) {
 	name.str("");
 	name << "surf" << surfi << "_lab" << labi << "_rco" << rcoi;
 	title.str("");
-	title << name.str() << ";storage bin;fit t deviation(ns)";
+	title << name.str() << ";Storage bin;Corrected dT (ns)";
 	int dTArrayIndex = surfi*8 + labi*2 + rcoi;
 	storageHists[dTArrayIndex] = new TH2D(name.str().c_str(),title.str().c_str(),
-					      260,-0.5,259.5, 401,-.2,.2);
+					      260,-0.5,259.5, 1001,0,1);
       }
     }
   }
-
-  //I should make a tree too, since it might be nice to see this as a function of time
-  outFile->cd();
-  TTree *storageTree = new TTree("dTDeviationTree","dTDeviationTree");
-  double dTArray[96][260];
-  storageTree->Branch("dTArray",&dTArray,"dTArray[96][260]/D");
-  storageTree->Branch("eventNumber",&eventNumber);
-
-  //null out the storage tree
-  for (int i=0; i<96; i++) {
-    for (int j=0; j<260; j++) {
-      dTArray[i][j] = -999; } }
 
   cout << "made storage stuff" << endl;
 
@@ -210,7 +198,9 @@ int makeOffsetHists(TFile* outFile) {
   int prevEventNumber = -1;
   UsefulAnitaEvent *useful = NULL;
 
-  lenFitTree = 250000;
+
+  //LOOP THROUGH ALL EVENTS
+  //  lenFitTree = 25000; //or just some of the events
   for (int entry=0; entry<lenFitTree; entry++) {
     if (entry%1000 == 0) {
 	cout << entry << "/" << lenFitTree << "\r";
@@ -228,12 +218,6 @@ int makeOffsetHists(TFile* outFile) {
     
     //When we move from one event number to another
     if (eventNumber != prevEventNumber) {
-      storageTree->Fill(); //this is when I should fill the tree, since it has at least 1/8 of the array filled
-
-    //null out the storage tree
-    for (int i=0; i<96; i++) {
-      for (int j=0; j<260; j++) {
-	dTArray[i][j] = -999; } }
       rawEventTree->GetEntryWithIndex(eventNumber);
       headTree->GetEntryWithIndex(eventNumber);
       if (useful != 0x0)  delete useful; 
@@ -244,40 +228,70 @@ int makeOffsetHists(TFile* outFile) {
 
     //figure out what channel that should be (index starts at 0 for getGraph)
     int channel = chans[surf]-1;
+    
+    //index for usefulAnitaEvent->fCapacitorNum
+    int usefulIndex = (surf)*9+channel;
 
     //    cout << "ev#:" << eventNumber << " " << surf << "," << channel << endl;
     TGraph *waveGraph = useful->getGraphFromSurfAndChan(surf,channel);
     
 
+    //I need to make a new array of x values and to save time I'll encode the cap num and rco phase in it
+    //x point is the "corrected" time point where it matches with the sine wave
+    //y point is the cap number.  negative is RCO1, positive is RCO0 ( pow(-1,rco) )
+    TGraph *newXArray = new TGraph();
+
+    //storage values for x,y and cap number data
     double x,y;
-    int rcoGuess = useful->fRcoArray[surf];
     int prevCapNum = -1;
+
+    //see what anitaEventCalibrator thinks the "first" rco phase is
+    int rcoFlipper = pow(-1,useful->fRcoArray[surf]);
+
+    //loop to create the new, corrected, xArray
     for (int pt=0; pt<waveGraph->GetN(); pt++) {
       waveGraph->GetPoint(pt,x,y);
-      //if we are within 10% of the maximum, don't use those (because they are dominated by vNoise)
+      //if we are within 10% of the maximum, set the correction to -999 and I wont use those
+      //(because the fit deviations will be dominated by vNoise)
+      double xCorrected; //need to define it outside the if/else statements
       if (abs(y) > amp*0.9) {
-	continue;
+	xCorrected = -999;
       }
-      //      cout <<  "GOT POINT --------------------->" << x << "," << y << endl;
-      double xCorrection = findOffset(amp,freq,phase,offset,x,y);
-      int usefulIndex = (surf)*9+channel;
+      else {
+	xCorrected = x - findOffset(amp,freq,phase,offset,x,y); 
+      }
       int capNum = useful->fCapacitorNum[usefulIndex][pt];
       if (pt!=0 && (capNum-prevCapNum < 0) ) { //this should find the rollaround point
-	rcoGuess = 1 - rcoGuess; }
+	rcoFlipper *= -1; }
       prevCapNum = capNum;
-      int storageIndex = surf*8 + lab*2 + rcoGuess;
-      storageHists[storageIndex]->Fill(capNum,xCorrection);
-      dTArray[storageIndex][capNum] = xCorrection;
+
+      newXArray->SetPoint(newXArray->GetN(),xCorrected,capNum*rcoFlipper);
+    }
+
+    //Loop to store dT values from the xArray:
+    //now that we have the new X array, we have to store the dT values (x0->x1 = dT0)
+    for (int pt=0; pt<newXArray->GetN() - 1; pt++) {
+      double x1 = newXArray->GetX()[pt+1];
+      double x0 = newXArray->GetX()[pt];
+      if (x1==-999 || x0==-999) { //if either of those points were in the 10% cut region don't do anything
+	continue;
+      }
+      double dT = x1-x0;
+      int capNum = newXArray->GetY()[pt];
+      int rcoToStore = 0;            //if the capNum is positive, it is rco0
+      if (capNum<0) rcoToStore = 1;  //else it is rco1 (from previous loop)
+      int storageIndex = surf*8 + lab*2 + rcoToStore;
+      storageHists[storageIndex]->Fill(abs(capNum),dT);
     }
     delete waveGraph;
+    delete newXArray;
 
-  }
+  } //END LOOP THROUGH EVENTS
 
   outFile->cd();
   for (int i=0; i<96; i++) {
     storageHists[i]->Write();
   }
-  storageTree->Write();
 
   return 1;
 }

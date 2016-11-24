@@ -7,19 +7,23 @@ int parseOffsets(bool savePlots=false){
 
     I can probably even use this to generate a "correction table"
 
+    Also a bunch of plots, plots are great
+
    */
 
   //get the offset file
-  TFile *offsetFile = TFile::Open("quick.root");
+  TFile *offsetFile = TFile::Open("dTOffset_test.root");
 
   //histogram to look at distribution of dT "incorrectness"
-  TH1D *hMeanOffsets = new TH1D("meanOffsets","meanOffsets;count;offset(ns)",250,-0.1,0.1);
+  TH1D *hMeanOffsets = new TH1D("meanOffsets","meanOffsets;count;offset(ns)",200,0,1);
   
   //saving the values of each mean
-  double meanOffsets[96][260];
-  
+  double corrdTArray[96][260];
+  double stdDevArray[96][260];
+
   stringstream name,saveName;
   TCanvas *c1 = new TCanvas("offsetCanvas","offsetCanvas",1200,800);
+  c1->SetLogz();
   for (int surfi=0; surfi<12; surfi++) {
     for (int labi=0; labi<4; labi++) {
       for (int rcoi=0; rcoi<2; rcoi++) {
@@ -34,10 +38,11 @@ int parseOffsets(bool savePlots=false){
 	  storageHist->Draw("colz");
 	  c1->SaveAs(saveName.str().c_str());
 	}
-	for (int bin=0; bin<260; bin++) {
+	for (int bin=1; bin<260; bin++) { //bins start at 1
 	  double mean = storageHist->ProjectionY("temp",bin,bin+1)->GetMean();
+	  stdDevArray[dTArrayIndex][bin] = storageHist->ProjectionY("temp",bin,bin+1)->GetStdDev();
 	  hMeanOffsets->Fill(mean);
-	  meanOffsets[dTArrayIndex][bin] = mean;
+	  corrdTArray[dTArrayIndex][bin] = mean;
 	}
       }
     }
@@ -61,28 +66,37 @@ int parseOffsets(bool savePlots=false){
 
   TH1D *origVar = new TH1D("origVar","Original Variance;dT(ns);count",200,0,1);
   TH1D *corrVar = new TH1D("corrVar","Corrected Variance;dT(ns);count",200,0,1);
-  TH1D *var = new TH1D("var","dT correction Offset;dT(ns);count",200,-0.02,0.02);
+  TH1D *correction = new TH1D("correction","correction;dTorig-dTcorr(ns);count",200,-0.1,0.1);
+  TH1D *hSigma = new TH1D("hSigma","Standard Deviation; Standard Deviation(ns);count",200,0,0.5);
 
   TH2D *corr2D = new TH2D("corr2D","corr2D",200,0,1,200,-0.1,-0.1);
 
   for (int entry=0; entry<dTcalTree->GetEntries(); entry++) {
     dTcalTree->GetEntry(entry);
     int dTArrayIndex = surf*8 + lab*2 + rco;
+    if (dT==0) continue; //these are the "last dT" and shouldn't be included
     //    cout << meanOffsets[dTArrayIndex][bin] << " " << dT << endl;
-    corrVar->Fill(meanOffsets[dTArrayIndex][bin]+dT);
+    corrVar->Fill(corrdTArray[dTArrayIndex][bin]);
     origVar->Fill(dT);
-    var->Fill(meanOffsets[dTArrayIndex][bin]);
-    corr2D->Fill(meanOffsets[dTArrayIndex][bin],dT);
+    corr2D->Fill(corrdTArray[dTArrayIndex][bin],dT);
+    hSigma->Fill(stdDevArray[dTArrayIndex][bin]);
   }
   
-  c1->Divide(1,2);
+
+  c1->Clear();
+  c1->Divide(2,1);
   c1->cd(1);
   corrVar->Draw();
   origVar->SetLineColor(kRed);
-  origVar->Draw("same");
+  origVar->Draw("sames");
+  TLegend *leg = new TLegend(0.1,0.8,0.3,0.9);
+  leg->AddEntry(origVar,"Original dT Distribution","l");
+  leg->AddEntry(corrVar,"Corrected dT Distribution","l");
+  leg->Draw("same");
   c1->cd(2);
-  var->Draw();
-  
+  hSigma->Draw();
+
+
     //corr2D->Draw("colz");
 
   return 1;

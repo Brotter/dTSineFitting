@@ -1,14 +1,18 @@
-{
+void normalizeResidToNoise(){
 
   /*
 
     The residual RMS should be normalized by the digitizer noise (which is stored in a different file)
 
+    Basically this just plots it now since I integrated it into the actual sine wave fitting
+
    */
 
-
+  //open some default out file
   TFile *outFile = TFile::Open("normalizedFitRMS.root","recreate");
 
+
+  //open the fit file for all the sine wave fits
   TFile *fitFile = TFile::Open("/Volumes/ANITA3Data/bigAnalysisFiles/sineCalibCheck_all10105_fixed.root");
   if (fitFile == 0) {
     cout << "can't find the fit file :(" << endl;
@@ -28,6 +32,7 @@
   fitTree->SetBranchAddress("surf",&surf);
 
 
+  //open the noise file with the noise rmses in it
   TFile *noiseFile = TFile::Open("noise.root");
   if (noiseFile == 0) {
     cout << "can't find the noise file :(" << endl;
@@ -35,36 +40,40 @@
   }
   
   TH2D *allNoiseRMS = (TH2D*)noiseFile->Get("rmsHist");
+  allNoiseRMS->SetTitle("Digitizer Noise RMS; ;RMS (mV)");
 
-  TH2D *normalHist = new TH2D("normResid","Normalized Fit Residuals;surf*8 + lab*2 + rco; residual RMS",
-			      96,-0.5,95.5, 250,0,10);
+  TH2D *fitResid = new TH2D("fitResid","Absolute Fit Residuals;(Surf*8) +(Lab*2) + Rco; Residual RMS (mV)",
+			      96,-0.5,95.5, 250,0,25);
 
-  stringstream name;
-  stringstream cut;
-  for (int surf=0; surf<12; surf++) {
-    for (int lab=0; lab<4; lab++) {
-      for (int rco=0; rco<2; rco++) {
-	int chanIndex = surf*8 + lab*2 + rco + 1;
-	cout << chanIndex << endl;
-	fflush(stdout);
-	double noiseRMS = allNoiseRMS->ProjectionY("temp",chanIndex,chanIndex+1)->GetMean();
-	name.str("");
-	name << "Surf" << surf+1 << "_Lab" << lab << "_rco" << rco;
-	currHist = new TH1D(name.str().c_str(),name.str().c_str(),500,0,10);
-	name.str("");
-	name << "residual/" << noiseRMS << " >> " << name.str();
-	cut.str("");
-	cut << "freq<0.44 && freq>0.43 && phase<4 && phase > -4 && amp > 80 && amp < 140 && residual<100 ";
-	cut << "&& surf == " << surf << " && lab == " << lab << " && rco == " << rco;
-	fitTree->Draw(name.str().c_str(),cut.str().c_str());
-	outFile->cd();
-	currHist->Write();
-	delete currHist;
+
+  TCanvas *cRMS2D = new TCanvas("cRMS2D","cRMS2D",1000,800);
+  cRMS2D->Divide(1,2);
+  cRMS2D->cd(1);
+  allNoiseRMS->Draw("colz");
+  cRMS2D->cd(2);
+  fitTree->Draw("residual:surf*8 + lab*2 + rco >> fitResid","residual<20","colz");
+  
+
+  TH1D *rmsRatio = new TH1D("rmsRatio","Ratio Between Noise and Fit Residual RMS;ratio;count",250,0,10);
+  for (int surfi=0; surfi<12; surfi++) {
+    for (int labi=0; labi<4; labi++) {
+      for (int rcoi=0; rcoi<2; rcoi++) {
+	int index = surfi*8 + labi*2 + rcoi;
+	double meanNoise = allNoiseRMS->ProjectionY("temp",index,index+1)->GetMean();
+	double meanFit   = fitResid->ProjectionY("temp",index,index+1)->GetMean();
+	rmsRatio->Fill(meanFit/meanNoise);
       }
     }
   }
 
+  TCanvas *cComp = new TCanvas("cComp","cComp",1000,800);
+  rmsRatio->Draw();
+
+
+
   outFile->Close();
+
+  return;
 
 }
   
