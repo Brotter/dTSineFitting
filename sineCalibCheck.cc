@@ -321,8 +321,6 @@ void noiseRMS(TFile* outFile) {
 int main(int argc, char** argv) {
 
   string outFileName;
-
-
   if (argc == 2) {
     outFileName = argv[1];
     cout << "Using " << outFileName << " as output file" << endl;

@@ -105,9 +105,11 @@ void linkSinToEvents() {
 
     if (freq<0.44 && freq>0.43 && phase<4 && phase > -4 && resid < 25 ) {
       eventTree->GetEntryWithIndex(eventNumber);
-      hFirstHitBus->Fill(resid,event->getFirstHitBus(3));
-      hLastHitBus->Fill(resid,event->getLastHitBus(3));
-      hWrappedHitBus->Fill(resid,event->getWrappedHitBus(3));
+      outResid[surf][lab][rco]->Fill(
+
+      //      hFirstHitBus->Fill(resid,event->getFirstHitBus(3));
+      //      hLastHitBus->Fill(resid,event->getLastHitBus(3));
+      //      hWrappedHitBus->Fill(resid,event->getWrappedHitBus(3));
 
     }
   }

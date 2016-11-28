@@ -12,7 +12,7 @@ int parseOffsets(bool savePlots=false){
    */
 
   //get the offset file
-  TFile *offsetFile = TFile::Open("dTOffset_test.root");
+  TFile *offsetFile = TFile::Open("dTOffsetFinder_3.root");
 
   //histogram to look at distribution of dT "incorrectness"
   TH1D *hMeanOffsets = new TH1D("meanOffsets","meanOffsets;count;offset(ns)",200,0,1);
@@ -31,7 +31,7 @@ int parseOffsets(bool savePlots=false){
 	name << "surf" << surfi << "_lab" << labi << "_rco" << rcoi;
 	int dTArrayIndex = surfi*8 + labi*2 + rcoi;
 	TH2D *storageHist = (TH2D*)offsetFile->Get(name.str().c_str());
-	if (savePlots == true) {
+	if (0) {
 	  saveName.str("");
 	  saveName << "plots/" << name.str() << ".png";
 	  c1->cd();
@@ -39,12 +39,29 @@ int parseOffsets(bool savePlots=false){
 	  c1->SaveAs(saveName.str().c_str());
 	}
 	for (int bin=1; bin<260; bin++) { //bins start at 1
-	  double mean = storageHist->ProjectionY("temp",bin,bin+1)->GetMean();
-	  stdDevArray[dTArrayIndex][bin] = storageHist->ProjectionY("temp",bin,bin+1)->GetStdDev();
+	  double mean = storageHist->ProjectionY("temp",bin,bin)->GetMean();
+	  stdDevArray[dTArrayIndex][bin] = storageHist->ProjectionY("temp",bin,bin)->GetStdDev();
 	  hMeanOffsets->Fill(mean);
 	  corrdTArray[dTArrayIndex][bin] = mean;
 	}
       }
+    }
+  }
+
+  if (savePlots == true) {
+    TH2D *storageHist = (TH2D*)offsetFile->Get("surf11_lab3_rco0");
+    for (int bin=1;bin<260;bin++) {
+      saveName.str("");
+      saveName << "plots/bin" << bin << ".png";
+      name.str("");
+      name << "Bin " << bin << ";Fit offset(ns);count";
+      TH1D* tempProj = storageHist->ProjectionY("temp",bin,bin+1);
+      c1->Clear();
+      c1->cd();
+      tempProj->SetTitle(name.str().c_str());
+      tempProj->Draw();
+      c1->SaveAs(saveName.str().c_str());
+      delete tempProj;
     }
   }
 

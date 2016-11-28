@@ -176,6 +176,7 @@ int makeOffsetHists(TFile* outFile) {
   //output storage histograms (need 96 2D histograms I guess... (bin# vs offset))
   stringstream title;
   TH2D *storageHists[96];
+  TH2D *diffHists[96];
   for (int surfi=0; surfi<12; surfi++) {
     for (int labi=0; labi<4; labi++) {
       for (int rcoi=0; rcoi<2; rcoi++) {
@@ -185,10 +186,20 @@ int makeOffsetHists(TFile* outFile) {
 	title << name.str() << ";Storage bin;Corrected dT (ns)";
 	int dTArrayIndex = surfi*8 + labi*2 + rcoi;
 	storageHists[dTArrayIndex] = new TH2D(name.str().c_str(),title.str().c_str(),
-					      260,-0.5,259.5, 1001,0,1);
+					      260,-0.5,259.5, 1001,0.0,1.0);
+
+	name.str("");
+	name << "Correction_surf" << surfi << "_lab" << labi << "_rco" << rcoi;
+	title.str("");
+	title << name.str() << ";Storage bin;Corrected dT (ns)";
+	diffHists[dTArrayIndex] = new TH2D(name.str().c_str(),title.str().c_str(),
+					      260,-0.5,259.5, 1001,-0.5,0.5);
       }
     }
   }
+
+  TH2D *devVsVolt = new TH2D("devVsVolt","Deviation vs Voltage;Voltage (mV);Deviation (nS)",
+			     250,0,3.,  251,-1.,1.);
 
   cout << "made storage stuff" << endl;
 
@@ -200,7 +211,7 @@ int makeOffsetHists(TFile* outFile) {
 
 
   //LOOP THROUGH ALL EVENTS
-  //  lenFitTree = 25000; //or just some of the events
+  lenFitTree = 250000; //or just some of the events
   for (int entry=0; entry<lenFitTree; entry++) {
     if (entry%1000 == 0) {
 	cout << entry << "/" << lenFitTree << "\r";
@@ -216,6 +227,7 @@ int makeOffsetHists(TFile* outFile) {
 	continue;
     }
     
+
     //When we move from one event number to another
     if (eventNumber != prevEventNumber) {
       rawEventTree->GetEntryWithIndex(eventNumber);
@@ -234,7 +246,7 @@ int makeOffsetHists(TFile* outFile) {
 
     //    cout << "ev#:" << eventNumber << " " << surf << "," << channel << endl;
     TGraph *waveGraph = useful->getGraphFromSurfAndChan(surf,channel);
-    
+
 
     //I need to make a new array of x values and to save time I'll encode the cap num and rco phase in it
     //x point is the "corrected" time point where it matches with the sine wave
@@ -253,8 +265,9 @@ int makeOffsetHists(TFile* outFile) {
       waveGraph->GetPoint(pt,x,y);
       //if we are within 10% of the maximum, set the correction to -999 and I wont use those
       //(because the fit deviations will be dominated by vNoise)
+      //also there is some bug where I can't do things with x<0 because I am dumb so lets just fuck that for a sec
       double xCorrected; //need to define it outside the if/else statements
-      if (abs(y) > amp*0.9) {
+      if (abs(y) > amp*0.9 || x<1) {
 	xCorrected = -999;
       }
       else {
@@ -266,6 +279,7 @@ int makeOffsetHists(TFile* outFile) {
       prevCapNum = capNum;
 
       newXArray->SetPoint(newXArray->GetN(),xCorrected,capNum*rcoFlipper);
+
     }
 
     //Loop to store dT values from the xArray:
@@ -282,6 +296,9 @@ int makeOffsetHists(TFile* outFile) {
       if (capNum<0) rcoToStore = 1;  //else it is rco1 (from previous loop)
       int storageIndex = surf*8 + lab*2 + rcoToStore;
       storageHists[storageIndex]->Fill(abs(capNum),dT);
+      double origdT = waveGraph->GetX()[pt+1] - waveGraph->GetX()[pt];
+      diffHists[storageIndex]->Fill(abs(capNum),origdT-dT);
+      devVsVolt->Fill(abs(y)/amp,origdT-dT);
     }
     delete waveGraph;
     delete newXArray;
@@ -291,7 +308,11 @@ int makeOffsetHists(TFile* outFile) {
   outFile->cd();
   for (int i=0; i<96; i++) {
     storageHists[i]->Write();
+    delete storageHists[i];
+    diffHists[i]->Write();
+    delete diffHists[i];
   }
+  devVsVolt->Write();
 
   return 1;
 }
