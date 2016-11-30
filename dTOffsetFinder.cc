@@ -150,7 +150,9 @@ int makeOffsetHists(TFile* outFile) {
 
   
 
-  TFile *fitFile = TFile::Open("/Volumes/ANITA3Data/bigAnalysisFiles/sineCalibCheck_all10105_AmpPhase.root");
+  //  TFile *fitFile = TFile::Open("/Volumes/ANITA3Data/bigAnalysisFiles/sineCalibCheck_all10105_AmpPhase.root");
+  //  TFile *fitFile = TFile::Open("sineCalibCheck_adc.root");
+  TFile *fitFile = TFile::Open("/Volumes/ANITA3Data/bigAnalysisFiles/sineCalibCheck_all10105_adc.root");
   TTree *fitTree = (TTree*)fitFile->Get("fitTree");
   double amp,freq,phase,residual,offset;
   int eventNumber,chanIndex,rco,lab,surf;
@@ -203,6 +205,9 @@ int makeOffsetHists(TFile* outFile) {
   TH2D *devVsVolt = new TH2D("devVsVolt","Deviation vs Voltage;Voltage (mV);Deviation (nS)",
 			     250,0,3.,  251,-1.,1.);
 
+  TGraph *gWeirdBin = new TGraph();
+  gWeirdBin->SetName("gWeirdBin");
+
   cout << "made storage stuff" << endl;
 
 
@@ -213,7 +218,7 @@ int makeOffsetHists(TFile* outFile) {
 
 
   //LOOP THROUGH ALL EVENTS
-  lenFitTree = 250000; //or just some of the events
+  //  lenFitTree = 2500; //or just some of the events
   for (int entry=0; entry<lenFitTree; entry++) {
     if (entry%1000 == 0) {
 	cout << entry << "/" << lenFitTree << "\r";
@@ -235,7 +240,7 @@ int makeOffsetHists(TFile* outFile) {
       rawEventTree->GetEntryWithIndex(eventNumber);
       headTree->GetEntryWithIndex(eventNumber);
       if (useful != 0x0)  delete useful; 
-      useful = new UsefulAnitaEvent(rawEvent,WaveCalType::kFull,header);
+      useful = new UsefulAnitaEvent(rawEvent,WaveCalType::kOnlyTiming,header);
     }
 
     prevEventNumber = eventNumber;
@@ -301,11 +306,14 @@ int makeOffsetHists(TFile* outFile) {
       double origdT = waveGraph->GetX()[pt+1] - waveGraph->GetX()[pt];
       diffHists[storageIndex]->Fill(abs(capNum),origdT-dT);
       devVsVolt->Fill(abs(y)/amp,origdT-dT);
+      if (capNum == -67 && surf==11 && lab==3) { //this cap has a two peaked distribution
+	gWeirdBin->SetPoint(gWeirdBin->GetN(),eventNumber,dT);
+      }
     }
     delete waveGraph;
     delete newXArray;
 
-  } //END LOOP THROUGH EVENTS
+  } //END LOOP THROUGH EVENTSx
 
   outFile->cd();
   for (int i=0; i<96; i++) {
@@ -315,7 +323,7 @@ int makeOffsetHists(TFile* outFile) {
     delete diffHists[i];
   }
   devVsVolt->Write();
-
+  gWeirdBin->Write();
   return 1;
 }
   

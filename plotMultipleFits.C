@@ -79,7 +79,8 @@ void plotMultipleFits(){
 
 
   //get the fit file
-  TFile *fitFile = TFile::Open("/Volumes/ANITA3Data/bigAnalysisFiles/sineCalibCheck_all10105_normalized.root");
+  //TFile *fitFile = TFile::Open("/Volumes/ANITA3Data/bigAnalysisFiles/sineCalibCheck_all10105_normalized.root");
+  TFile *fitFile = TFile::Open("sineCalibCheck_adc.root");
   TTree *fitTree = (TTree*)fitFile->Get("fitTree");
   double amp,freq,phase,residual,offset;
   int eventNumber,chanIndex,rco,lab,surf;

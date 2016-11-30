@@ -12,7 +12,7 @@ int parseOffsets(bool savePlots=false){
    */
 
   //get the offset file
-  TFile *offsetFile = TFile::Open("dtOffsetFinder_ampPhase.root");
+  TFile *offsetFile = TFile::Open("dtOffsetFinder_adc.root");
 
   //histogram to look at distribution of dT "incorrectness"
   TH1D *hMeanOffsets = new TH1D("meanOffsets","meanOffsets;count;offset(ns)",200,0,1);
@@ -55,7 +55,7 @@ int parseOffsets(bool savePlots=false){
       saveName << "plots/bin" << bin << ".png";
       name.str("");
       name << "Bin " << bin << ";Fit offset(ns);count";
-      TH1D* tempProj = storageHist->ProjectionY("temp",bin,bin+1);
+      TH1D* tempProj = storageHist->ProjectionY("temp",bin,bin);
       c1->Clear();
       c1->cd();
       tempProj->SetTitle(name.str().c_str());
