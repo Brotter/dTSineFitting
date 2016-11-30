@@ -9,15 +9,13 @@ void comparePhases() {
 
 
   //get the fit file
-  TFile *fitFile = TFile::Open("/Volumes/ANITA3Data/bigAnalysisFiles/sineCalibCheck_all10105_normalized.root");
+  TFile *fitFile = TFile::Open("/Volumes/ANITA3Data/bigAnalysisFiles/sineCalibCheck_all10105_AmpPhase.root");
   TTree *fitTree = (TTree*)fitFile->Get("fitTree");
   double amp,freq,phase,residual,offset;
   int eventNumber,chanIndex,rco,lab,surf;
   fitTree->SetBranchAddress("eventNumber",&eventNumber);
   fitTree->SetBranchAddress("amp",&amp);
-  fitTree->SetBranchAddress("freq",&freq);
   fitTree->SetBranchAddress("phase",&phase);
-  fitTree->SetBranchAddress("offset",&offset);
   fitTree->SetBranchAddress("residual",&residual);
   fitTree->SetBranchAddress("chanIndex",&chanIndex);
   fitTree->SetBranchAddress("rco",&rco);

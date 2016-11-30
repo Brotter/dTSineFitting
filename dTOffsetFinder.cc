@@ -150,15 +150,17 @@ int makeOffsetHists(TFile* outFile) {
 
   
 
-  TFile *fitFile = TFile::Open("/Volumes/ANITA3Data/bigAnalysisFiles/sineCalibCheck_all10105_normalized.root");
+  TFile *fitFile = TFile::Open("/Volumes/ANITA3Data/bigAnalysisFiles/sineCalibCheck_all10105_AmpPhase.root");
   TTree *fitTree = (TTree*)fitFile->Get("fitTree");
   double amp,freq,phase,residual,offset;
   int eventNumber,chanIndex,rco,lab,surf;
   fitTree->SetBranchAddress("eventNumber",&eventNumber);
   fitTree->SetBranchAddress("amp",&amp);
-  fitTree->SetBranchAddress("freq",&freq);
+  //  fitTree->SetBranchAddress("freq",&freq);
+  freq = 0.4321;
   fitTree->SetBranchAddress("phase",&phase);
-  fitTree->SetBranchAddress("offset",&offset);
+  //  fitTree->SetBranchAddress("offset",&offset);
+  offset = 0.0;
   fitTree->SetBranchAddress("residual",&residual);
   fitTree->SetBranchAddress("chanIndex",&chanIndex);
   fitTree->SetBranchAddress("rco",&rco);
@@ -222,10 +224,10 @@ int makeOffsetHists(TFile* outFile) {
     fitTree->GetEntry(entry);
     
     //lets make a cut on a sort of "fit goodness" as define by me
-    if (!(freq<0.44 && freq>0.43 && phase<4 && phase > -4 && amp > 80 && amp < 400
-	  && residual<100)) {
-	continue;
-    }
+    //    if (!(freq<0.44 && freq>0.43 && phase<4 && phase > -4 && amp > 80 && amp < 400
+    //	  && residual<100)) {
+    //	continue;
+    //    }
     
 
     //When we move from one event number to another

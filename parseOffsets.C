@@ -12,7 +12,7 @@ int parseOffsets(bool savePlots=false){
    */
 
   //get the offset file
-  TFile *offsetFile = TFile::Open("dTOffsetFinder_3.root");
+  TFile *offsetFile = TFile::Open("dtOffsetFinder_ampPhase.root");
 
   //histogram to look at distribution of dT "incorrectness"
   TH1D *hMeanOffsets = new TH1D("meanOffsets","meanOffsets;count;offset(ns)",200,0,1);

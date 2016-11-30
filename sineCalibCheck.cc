@@ -163,8 +163,8 @@ void sineFitting(TFile *outFile){
       sinFit->SetParName(0,"Amplitude");
       sinFit->SetParameter(0,200.);
 
-      sinFit->SetParName(1,"FrequencyX2Pi");
-      sinFit->SetParameter(1,2.*M_PI*0.4321); //in GHz since x is in ns
+      //      sinFit->SetParName(1,"FrequencyX2Pi");
+      //      sinFit->SetParameter(1,2.*M_PI*0.4321); //in GHz since x is in ns
 
       sinFit->SetParName(2,"Phase");
       sinFit->SetParameter(2,0);
