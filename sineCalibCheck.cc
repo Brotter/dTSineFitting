@@ -300,7 +300,7 @@ void noiseRMS(TFile* outFile) {
 
     delete usefulRawEvent;
 
-}
+  }
 
   outFile->cd();
   rmsHist->Write();
