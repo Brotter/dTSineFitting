@@ -152,7 +152,7 @@ int makeOffsetHists(TFile* outFile) {
 
   //  TFile *fitFile = TFile::Open("/Volumes/ANITA3Data/bigAnalysisFiles/sineCalibCheck_all10105_AmpPhase.root");
   //  TFile *fitFile = TFile::Open("sineCalibCheck_adc.root");
-  TFile *fitFile = TFile::Open("/Volumes/ANITA3Data/bigAnalysisFiles/sineCalibCheck_all10105_adc.root");
+  TFile *fitFile = TFile::Open("/Volumes/ANITA3Data/bigAnalysisFiles/sineCalibCheck_adc.root");
   TTree *fitTree = (TTree*)fitFile->Get("fitTree");
   double amp,freq,phase,residual,offset;
   int eventNumber,chanIndex,rco,lab,surf;
@@ -218,7 +218,7 @@ int makeOffsetHists(TFile* outFile) {
 
 
   //LOOP THROUGH ALL EVENTS
-  //  lenFitTree = 2500; //or just some of the events
+  lenFitTree = 15000; //or just some of the events
   for (int entry=0; entry<lenFitTree; entry++) {
     if (entry%1000 == 0) {
 	cout << entry << "/" << lenFitTree << "\r";

@@ -13,9 +13,11 @@
 	       "surf/I:chip/I:rco/I:sample/I:binSize/D");
 
 
-  TH2D* hbinSize = new TH2D("hbinSize","Bin Size Larger than 500ps;Sample Number;(Surf*8) + (Chip*2) + RCO",
+  TH2D* hbinSize = new TH2D("hbinSize","ANITA3 Sampling Bin Size;Sample Number;(Surf*8) + (Chip*2) + RCO",
 			    259,-0.5,258.5,       96,-0.5,95.5);
 
+  TH2D* hbinDiff = new TH2D("hbinDiff","Bin Deviation from Nominal (%);Sample Number;(Surf*8)+(Chip*2)+RCO",
+			    259,-0.5,258.5,       96,-0.5,95.5);
   int surf,chip,rco,sample;
   double binSize;
 
@@ -29,14 +31,12 @@
   cout << dTTree->GetEntries() << endl;
   for (int entry=0; entry<dTTree->GetEntries(); entry++) {
     dTTree->GetEntry(entry);
-    if ( binSize < 0.5) {
-      continue; 
-    }
     int index = surf*8 + chip*2 + rco;
-    hbinSize->Fill(sample,index);
+    hbinSize->Fill(sample,index,binSize);
+    hbinDiff->Fill(sample,index,100*(abs(binSize-(1./2.6))*2.6));
   }
 
-  hbinSize->Draw("col");
+  hbinDiff->Draw("colz");
 
 }
     

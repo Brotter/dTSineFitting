@@ -1,7 +1,6 @@
 #include "AnitaConventions.h"
 
 
-
 double findOffset(double amp, double freq, double phase, double offset, double xValue, double yValue) {
 
   //  cout << "params " <<  amp << " " << freq << " " << phase << " " << offset << endl;
@@ -80,7 +79,7 @@ void fitMultipleSinWaves(int eventNumber=-1){
   
   //Events Waveforms
   TChain *rawEventTree = new TChain("eventTree","");
-  name.str("");
+OA  name.str("");
   name << "/Volumes/ANITA3Data/antarctica14/root/run" << run << "/eventFile" << run << ".root";
   rawEventTree->Add(name.str().c_str());
   cout << "Adding: " << name.str() << endl;

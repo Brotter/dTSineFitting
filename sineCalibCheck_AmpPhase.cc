@@ -125,7 +125,7 @@ void sineFitting(TFile *outFile){
     for (int lab=0; lab<4; lab++) {
       for (int rco=0; rco<2; rco++) {
 	int chanIndex = surf*8 + lab*2 + rco + 1;
-	chanNoise[surf][lab][rco] = allNoiseRMS->ProjectionY("temp",chanIndex,chanIndex+1)->GetMean();
+	chanNoise[surf][lab][rco] = allNoiseRMS->ProjectionY("temp",chanIndex,chanIndex)->GetMean();
 	cout << surf << " " << lab << " " << rco << " : " << chanNoise[surf][lab][rco] << endl;
       }
     }
@@ -327,8 +327,8 @@ int main(int argc, char** argv) {
   
   TFile *outFile = TFile::Open(outFileName.c_str(),"recreate");
   
-  //  sineFitting(outFile);
-  noiseRMS(outFile);
+  sineFitting(outFile);
+  //  noiseRMS(outFile);
 
   outFile->Close();
   
