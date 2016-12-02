@@ -39,13 +39,6 @@ using namespace std;
   BenS did this, but if I do it too maybe we can get these back to a normal <10% variance.  Otherwise
    we are going to have to make some sort of hit-bus dependant transfer function I guess.
 
-
-   ***************************
-   This modification is because I want to try and get the phase to fit better.
-   The intersurf phase fit jitter is on the order of a nanosecond(!!!) in the other one
-   so I'm just hard coding the frequency to 432.1MHz and the offset to zero to see if it fits better
-   ***************************
-
  */
 
 //Run10023 seems okay so I'll just define it for now (432.1MHz for 650k entries, overnight)
@@ -98,7 +91,9 @@ void sineFitting(TFile *outFile){
 
   //then lets make a histogram for each of those parameters, plus the residuals (which I'll need to calc)
   TH1D *hAmp = new TH1D("hAmp","Fit Amplitudes",100,0,500);
+  TH1D *hFreq = new TH1D("hFreq","Fit Frequencies",1000,0.400,0.500);
   TH1D *hPhase = new TH1D("hPhase","Fit Phases",200,-1*M_PI-1,M_PI+1);
+  TH1D *hOffset = new TH1D("hOffset","Fit Offsets",100,-10,10);
   TH1D *hResid = new TH1D("hResid","Fit Residual RMS",1000,0,50);
 
   //Actually lets make a whole damn tree!
@@ -108,7 +103,9 @@ void sineFitting(TFile *outFile){
   int chanIndex,rco,lab,surf,chan,eventNumber;
   fitTree->Branch("eventNumber",&eventNumber);
   fitTree->Branch("amp",&amp);
+  fitTree->Branch("freq",&freq);
   fitTree->Branch("phase",&phase);
+  fitTree->Branch("offset",&offset);
   fitTree->Branch("residual",&resid);
   fitTree->Branch("chanIndex",&chanIndex);
   fitTree->Branch("rco",&rco);
@@ -117,7 +114,7 @@ void sineFitting(TFile *outFile){
 
 
   //get the noise RMS to normalize (function to generate in this file)
-  TFile *noiseFile = TFile::Open("noise_ADC.root");
+  TFile *noiseFile = TFile::Open("noise.root");
   TH2D *allNoiseRMS = (TH2D*)noiseFile->Get("rmsHist");
 
   double chanNoise[12][4][2];
@@ -125,7 +122,7 @@ void sineFitting(TFile *outFile){
     for (int lab=0; lab<4; lab++) {
       for (int rco=0; rco<2; rco++) {
 	int chanIndex = surf*8 + lab*2 + rco + 1;
-	chanNoise[surf][lab][rco] = allNoiseRMS->ProjectionY("temp",chanIndex,chanIndex)->GetMean();
+	chanNoise[surf][lab][rco] = allNoiseRMS->ProjectionY("temp",chanIndex,chanIndex+1)->GetMean();
 	cout << surf << " " << lab << " " << rco << " : " << chanNoise[surf][lab][rco] << endl;
       }
     }
@@ -134,7 +131,7 @@ void sineFitting(TFile *outFile){
 
 
   int lenEntries = headTree->GetEntries();
-  //  int lenEntries = 50000;
+  //  int lenEntries = 5000;
   for (int entry=0; entry<lenEntries; entry++) {
     cout << "Entry:" << entry << "/" << lenEntries << "\r";
     fflush(stdout);
@@ -146,7 +143,7 @@ void sineFitting(TFile *outFile){
     }
     eventNumber = rawEvent->eventNumber;
 
-    UsefulAnitaEvent *usefulRawEvent = new UsefulAnitaEvent(rawEvent,WaveCalType::kOnlyTiming,header);
+    UsefulAnitaEvent *usefulRawEvent = new UsefulAnitaEvent(rawEvent,WaveCalType::kFull,header);
     //I don't want to resample the alfa so I have to turn it's filtering off
     usefulRawEvent->setAlfaFilterFlag(false);
     
@@ -162,14 +159,18 @@ void sineFitting(TFile *outFile){
 
 
       //Lets define the sine fit function (I don't know what I should do for the range...)
-      //Since the phase is the biggest generator of error, and the freq is very constant, lets try
-      /// hard coding those?
-      TF1 *sinFit = new TF1("sinFit","[0]*sin(x*0.4321*2.*3.14159+[1])",20.,80.);
+      TF1 *sinFit = new TF1("sinFit","[0]*sin(x*[1]+[2])+[3]",20.,80.);
       sinFit->SetParName(0,"Amplitude");
       sinFit->SetParameter(0,200.);
 
-      sinFit->SetParName(1,"Phase");
+      //      sinFit->SetParName(1,"FrequencyX2Pi");
+      //      sinFit->SetParameter(1,2.*M_PI*0.4321); //in GHz since x is in ns
+
+      sinFit->SetParName(2,"Phase");
       sinFit->SetParameter(2,0);
+
+      sinFit->SetParName(3,"Offset");
+      sinFit->SetParameter(3,0);
 
       int fitStatus = gr->Fit(sinFit,"NQ"); //N=no draw, Q=quiet, M=more (better) fit?
       //if the fit is no good tell me
@@ -183,11 +184,15 @@ void sineFitting(TFile *outFile){
       //if the fit is good, fill the histograms
       else {
 	amp = sinFit->GetParameter(0);
-	phase = sinFit->GetParameter(1);
+	freq = sinFit->GetParameter(1)/(2.*M_PI);
+	phase = sinFit->GetParameter(2);
+	offset = sinFit->GetParameter(3);
 	
 
 	hAmp->Fill(amp);
+	hFreq->Fill(freq);
 	hPhase->Fill(phase);
+	hOffset->Fill(offset);
 	
 	double absResidSum = 0;
 	for (int pt = 0; pt<gr->GetN(); pt++) {
@@ -211,7 +216,9 @@ void sineFitting(TFile *outFile){
   
   outFile->cd();
   hAmp->Write();
+  hFreq->Write();
   hPhase->Write();
+  hOffset->Write();
   hResid->Write();
   fitTree->Write();
   return;
@@ -261,7 +268,7 @@ void noiseRMS(TFile* outFile) {
   int surfs[12] = {1,2,3,4,5,6,7,8,9,10,11,12};
   int chans[12] = {4,2,4,2,4,2,4,4,2, 2, 2, 2};
 
-  TH2D* rmsHist = new TH2D("rmsHist","Channel Noise RMS;(Surf*8)+(Chip*2)+RCO;Noise RMS (mV)",
+  TH2D* rmsHist = new TH2D("rmsHist","Channel Noise RMS;Noise RMS (mV);(Surf*8)+(Chip*2)+RCO",
 			   96,-0.5,95.5,
 			   100,0,10);
 
@@ -327,8 +334,8 @@ int main(int argc, char** argv) {
   
   TFile *outFile = TFile::Open(outFileName.c_str(),"recreate");
   
-  sineFitting(outFile);
-  //  noiseRMS(outFile);
+  //sineFitting(outFile);
+  noiseRMS(outFile);
 
   outFile->Close();
   
