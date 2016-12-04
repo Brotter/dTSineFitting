@@ -22,6 +22,7 @@
 #include "RawAnitaHeader.h"
 #include "CalibratedAnitaEvent.h"
 #include "UsefulAnitaEvent.h"
+#include "sineUtils.h"
 
 using namespace std;
 
@@ -45,67 +46,6 @@ using namespace std;
 
 
 
-double findOffset(double amp, double freq, double phase, double offset, double xValue, double yValue) {
-
-  //  cout << "params " <<  amp << " " << freq << " " << phase << " " << offset << endl;
-
-
-  //first lets determine which half-period of the sine wave this is (from x I guess)
-  double period = 1./freq;
-  double xAngle = fmod((xValue*freq*2*M_PI + phase),(2.*M_PI)); //this should be 0->2pi
-
-
-  //I have to figure out if it is in quadrant 2 or 3
-  int quadrant = 0;
-  if (xAngle > M_PI/2. && xAngle <= M_PI) {
-    quadrant = 2;
-  }
-  else if (xAngle > M_PI && xAngle <= (3./2.)*M_PI) {
-    quadrant = 3;
-  }
-
-  //  cout << "x=" << xValue << "|" << fmod(xValue,period) << " xAngle " << xAngle << " " << quadrant << endl;
-
-  //determine what the angle should be of something with that y
-  double temp0 = (yValue - offset)/amp;
-  //thats the normalized value, so we can figure out what angle that is;
-  double temp1 = asin( temp0 );
-  //if the x value is in the "odd" region not returned by asin, need to shift it into that region
-  double temp2;
-  if (quadrant == 2) {
-    temp2 = M_PI - temp1;
-  }
-  else if (quadrant == 3) {
-    temp2 = 3.*M_PI - temp1;
-  }
-  else {
-    temp2 = temp1;
-  }
-  double temp3 = temp2 - phase;
-
-
-  //  cout << "y=" << yValue << " temps: " << temp0 << " " << temp1  << " " << temp2 << " " << temp3 << "<-----------------------------" << endl;
-
-  //  double x = asin(( (yValue*pow(-1,perN) )-offset)/amp)-phase+(M_PI*perN)/freq;
-  //  cout << x << endl;
-
-  //so then the "correction" should be the difference betwen that and the initial value!
-  double xCorrectionAngle = temp2-xAngle;
-  //this is circular again, so we need to correct for things that are 2pi separated
-  if (xCorrectionAngle > M_PI) {
-    xCorrectionAngle -= 2.*M_PI;
-  }
-  else if (xCorrectionAngle < -M_PI) {
-    xCorrectionAngle += 2.*M_PI;
-  }
-  //and the x is that angle scaled by frequency
-  double xCorrection = xCorrectionAngle/(freq*2.*M_PI);
-      
-  //  cout << "Final: " << xCorrectionAngle << " " << xCorrection << endl;
-  
-  return xCorrection;
-
-}
 
 
 
@@ -148,11 +88,15 @@ int makeOffsetHists(TFile* outFile) {
   RawAnitaHeader *header = NULL;
   headTree->SetBranchAddress("header",&header);
 
+
+  //get the pedestal corrections I made (12 surfs, 8 chans, 4 labs, 259 samples)
+  double pedCorrections[12*8*4*259];
+  loadPedCorrections(pedCorrections);
   
 
-  //  TFile *fitFile = TFile::Open("/Volumes/ANITA3Data/bigAnalysisFiles/sineCalibCheck_all10105_AmpPhase.root");
+  TFile *fitFile = TFile::Open("/Volumes/ANITA3Data/bigAnalysisFiles/sineCalibCheck_all10105_AmpPhase.root");
   //  TFile *fitFile = TFile::Open("sineCalibCheck_adc.root");
-  TFile *fitFile = TFile::Open("/Volumes/ANITA3Data/bigAnalysisFiles/sineCalibCheck_adc.root");
+  //  TFile *fitFile = TFile::Open("/Volumes/ANITA3Data/bigAnalysisFiles/sineCalibCheck_adc.root");
   TTree *fitTree = (TTree*)fitFile->Get("fitTree");
   double amp,freq,phase,residual,offset;
   int eventNumber,chanIndex,rco,lab,surf;
@@ -218,7 +162,7 @@ int makeOffsetHists(TFile* outFile) {
 
 
   //LOOP THROUGH ALL EVENTS
-  lenFitTree = 15000; //or just some of the events
+  //  lenFitTree = 15000; //or just some of the events
   for (int entry=0; entry<lenFitTree; entry++) {
     if (entry%1000 == 0) {
 	cout << entry << "/" << lenFitTree << "\r";
@@ -274,13 +218,19 @@ int makeOffsetHists(TFile* outFile) {
       //(because the fit deviations will be dominated by vNoise)
       //also there is some bug where I can't do things with x<0 because I am dumb so lets just fuck that for a sec
       double xCorrected; //need to define it outside the if/else statements
+
+      int capNum = useful->fCapacitorNum[usefulIndex][pt];
+
+      //fix the pedestal
+      y -= pedCorrections[pedIndex(surf,channel,lab,capNum)];
+
       if (abs(y) > amp*0.9 || x<1) {
 	xCorrected = -999;
       }
       else {
 	xCorrected = x - findOffset(amp,freq,phase,offset,x,y); 
       }
-      int capNum = useful->fCapacitorNum[usefulIndex][pt];
+
       if (pt!=0 && (capNum-prevCapNum < 0) ) { //this should find the rollaround point
 	rcoFlipper *= -1; }
       prevCapNum = capNum;

@@ -38,23 +38,33 @@ void checkCapArray(){
   RawAnitaHeader *header = NULL;
   headTree->SetBranchAddress("header",&header);
 
-  rawEventTree->GetEntry(0);
-  headTree->GetEntry(0);
+  TH1D* capBinNums = new TH1D("capBinNums","Capacitor Bin Numbers;binNumber;occupancy",263,-1.5,261.5);
 
-  UsefulAnitaEvent *usefulRawEvent = new UsefulAnitaEvent(rawEvent,WaveCalType::kFull,header);
-  //I don't want to resample the alfa so I have to turn it's filtering off
-  usefulRawEvent->setAlfaFilterFlag(false);
+  for (int entry=0; entry<1000; entry++) {
+    cout << entry << endl;
+    rawEventTree->GetEntry(entry);
+    headTree->GetEntry(entry);
+
+    UsefulAnitaEvent *usefulRawEvent = new UsefulAnitaEvent(rawEvent,WaveCalType::kFull,header);
+    //I don't want to resample the alfa so I have to turn it's filtering off
+    usefulRawEvent->setAlfaFilterFlag(false);
     
-  int surf = 0;
-  int chan = 3;
-
-  for (int chan=0; chan<NUM_DIGITZED_CHANNELS; chan++) {
-    cout << endl << chan << " | ";
-    for (int samp=0; samp<NUM_SAMP; samp++){
-      cout << usefulRawEvent->fCapacitorNum[chan][samp] << " ";
-    }
+    
+    
+    for (int surf=0; surf<12; surf++) {
+      for (int chan=0; chan<8; chan++) {
+	int usefulIndex = surf*9 + chan;
+	for (int samp=0; samp<NUM_SAMP; samp++){
+	  capBinNums->Fill(usefulRawEvent->fCapacitorNum[usefulIndex][samp]);
+	}
+      }
+    }    
+    
+    delete usefulRawEvent;
   }
-
-
-  return 1;
-}
+  
+    capBinNums->Draw();
+    
+    return 1;
+  }
+  

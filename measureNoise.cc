@@ -38,9 +38,29 @@ using namespace std;
 
 
 
+int storageIndex(int surf, int chan, int lab) {
+  return surf*32 + chan*4 + lab;
+}
 
 
+int pedIndex(int surf, int chan, int lab, int sample) {
+  return (surf*8*4*259) + (chan*4*259) + (lab*259) + sample;
+}
 
+void loadPedCorrections(double* pedCorrections) {
+
+  ifstream inFile("pedCorrections.txt");
+
+  int surf,chan,lab,sample;
+  double pedCorr;
+  while (inFile >> surf >> chan >> lab >> sample >> pedCorr) {
+    pedCorrections[pedIndex(surf,chan,lab,sample)] = pedCorr;
+  }
+
+  return;
+
+
+}
 
 void fillStorageHists(WaveCalType::WaveCalType_t waveCalType, TH2D** storageHists, int run=-1) {
   /*
@@ -50,18 +70,23 @@ void fillStorageHists(WaveCalType::WaveCalType_t waveCalType, TH2D** storageHist
 
    */
 
-  
   //default run
   if (run==-1) {
-      run = 10438; //this is a pretty long run (17k events) where all the amps are off
+      run = 20; //this is a pretty long run (17k events) where all the amps are off
     }  
 
   stringstream name;  
   
+  
+  //get the pedestal corrections I made (12 surfs, 8 chans, 4 labs, 259 samples)
+  double pedCorrections[12*8*4*259];
+  loadPedCorrections(pedCorrections);
+
+
   //Events Waveforms
   TChain *rawEventTree = new TChain("eventTree","");
   name.str("");
-  name << "/Volumes/ANITA3Data/antarctica14/root/run" << run << "/eventFile" << run << ".root";
+  name << "/Volumes/ANITA3Data/root/run" << run << "/eventFile" << run << ".root";
   rawEventTree->Add(name.str().c_str());
   cout << "Adding: " << name.str() << endl;
   cout << "rawEventTree Entries: " << rawEventTree->GetEntries() << endl;
@@ -69,7 +94,7 @@ void fillStorageHists(WaveCalType::WaveCalType_t waveCalType, TH2D** storageHist
   //Event Headers
   TChain *headTree = new TChain("headTree","");
   name.str("");
-  name << "/Volumes/ANITA3Data/antarctica14/root/run" << run << "/headFile" << run << ".root";
+  name << "/Volumes/ANITA3Data/root/run" << run << "/headFile" << run << ".root";
   headTree->Add(name.str().c_str());
   cout << "Adding: " << name.str() << endl;
   cout << "headTree Entries: " << headTree->GetEntries() << endl;
@@ -82,7 +107,7 @@ void fillStorageHists(WaveCalType::WaveCalType_t waveCalType, TH2D** storageHist
   headTree->SetBranchAddress("header",&header);
 
   int lenEntries = headTree->GetEntries();
-  //  int lenEntries = 1000;
+  //  lenEntries = 1000; //uncomment for testing
   for (int entry=0; entry<lenEntries; entry++) {
     if (entry%100 == 0) {
       cout << "Entry:" << entry << "/" << lenEntries << "\r";
@@ -103,25 +128,32 @@ void fillStorageHists(WaveCalType::WaveCalType_t waveCalType, TH2D** storageHist
     
     
     for (int surf=0; surf<NUM_SURF; surf++) {
-      for (int chan=0; chan<CHANNELS_PER_SURF; chan++) {
+      for (int chan=0; chan<8; chan++) {
 
 	TGraph *gr = usefulRawEvent->getGraphFromSurfAndChan(surf,chan);
 
 	//from simpleStructs.h -> chanIndex = chan+9*surf
-	int chanIndex = surf*9 + chan;
-	int rco = rawEvent->getRCO(chanIndex);
-	int lab = rawEvent->getLabChip(chanIndex);
+	int usefulIndex = surf*9 + chan;
+	int rco = rawEvent->getRCO(usefulIndex);
+	int lab = rawEvent->getLabChip(usefulIndex);
       
 	//I am doing a different indexing system because I'm special (and I don't care about the clock)
-	int index = surf*8 + chan;
-	storageHists[index]->Fill(surf*8+lab*2+rco,TMath::RMS(gr->GetN(),gr->GetY()));
-      delete gr;
+	int index = storageIndex(surf,chan,lab);
+
+	
+	for (int pt=0; pt<gr->GetN(); pt++) {
+	  int capNum = usefulRawEvent->fCapacitorNum[usefulIndex][pt];
+	  
+	  storageHists[index]->Fill(capNum,gr->GetY()[pt]-pedCorrections[pedIndex(surf,chan,lab,capNum)]);
+	  //	  storageHists[index]->Fill(capNum,gr->GetY()[pt]);
+	}
+	delete gr;
       }
     }
     
     delete usefulRawEvent;
       
-  }
+  }//end of event loop
   cout << endl;
 
   delete headTree;
@@ -141,39 +173,50 @@ void makeStorageHists(WaveCalType::WaveCalType_t waveCalType,TH2D** storageHists
   //I'll put that in their names
 
   //this is going to be different based on which wavecaltype, I'm also going to do the full range because why not
-  //I'll always do 4096 bins tho
+
   double voltsMin,voltsMax;
+  int numBins;
+  string calName;
+  if (waveCalType == WaveCalType::kNoCalib) {
+    //mV, I think we have like a -1V to 1V range?
+    numBins  =  201;
+    voltsMin = -100.0;
+    voltsMax =  100.0;
+    calName  = "kNoCalib";}
   if (waveCalType == WaveCalType::kOnlyTiming) {
     //adc counts, 12 bits 2**12=4096
-    voltsMin = 0;
-    voltsMax = 4096; }
+    numBins  = 2048;
+    voltsMin = -100;
+    voltsMax = 100; 
+    calName  = "kOnlyTiming";}
   if (waveCalType == WaveCalType::kFull) {
     //mV, I think we have like a -1V to 1V range?
-    voltsMin = -1.0;
-    voltsMax =  1.0;
-  }
-   
-  //make the array to store them
+    numBins = 1024;
+    voltsMin = -200.0;
+    voltsMax =  200.0;
+    calName = "kFull";}
 
+  //make the array to store them
   stringstream title,name;
   for (int surf=0; surf<NUM_SURF; surf++) {
-    for (int chan=0; chan<CHANNELS_PER_SURF ;chan++) {
-      title.str("");
-      title << "Channel Noise RMS --";
-      title << "waveCalType::" << WaveCalType::calTypeAsString(waveCalType);
-      title << " Surf" << surf << "Chan" << chan;
-      title << "; SCA Bin Number; Noise Value (mV/adc)";
-      name.str("");
-      name << "caltype" << WaveCalType::calTypeAsString(waveCalType);
-      name << "_surf" << surf << "_chan" << chan;
-
-      int index = surf*8 + chan;
-      storageHists[index] = new TH2D(name.str().c_str(),title.str().c_str(),
-				     260,-0.5,259.5,4096,voltsMin,voltsMax);
+    for (int chan=0; chan<8 ;chan++) {
+      for (int lab=0; lab<4; lab++) {
+	title.str("");
+	title << "Channel Noise RMS -- ";
+	title << "waveCalType::" << calName;
+	title << " Surf" << surf << "Chan" << chan << "Lab" << lab;
+	title << "; SCA Bin Number; Y Value (mV or adc)";
+	name.str("");
+	name << calName << "_surf" << surf << "_chan" << chan << "_lab" << lab;
+	
+	int index = storageIndex(surf,chan,lab);
+	storageHists[index] = new TH2D(name.str().c_str(),title.str().c_str(),
+				       260,-0.5,259.5,numBins,voltsMin,voltsMax);
+      }
     }
   }
 			       
-  cout << "Created storage hists" << endl;
+    cout << "Created empty storage hists" << endl;
 
   return;
   
@@ -182,9 +225,11 @@ void makeStorageHists(WaveCalType::WaveCalType_t waveCalType,TH2D** storageHists
 
 void deleteStorageHists(TH2D** storageHists) {
   for (int surf=0; surf<NUM_SURF; surf++) {
-    for (int chan=0; chan<CHANNELS_PER_SURF ;chan++) {
-      int index=surf*8+chan;
-      delete storageHists[index];
+    for (int chan=0; chan<8 ;chan++) {
+      for (int lab=0; lab<4; lab++) {
+	int index= storageIndex(surf,chan,lab);
+	delete storageHists[index];
+      }
     }
   }
   cout << "Deleted storage hists" << endl;
@@ -198,17 +243,17 @@ void saveStorageHists(TFile *outFile, TH2D** storageHists){
 
   outFile->cd();
   for (int surf=0; surf<NUM_SURF; surf++) {
-    for (int chan=0; chan<CHANNELS_PER_SURF ;chan++) {
-      int index=surf*8+chan;
-      storageHists[index]->Write();
+    for (int chan=0; chan<8 ;chan++) {
+      for (int lab=0; lab<4; lab++) {
+	int index= storageIndex(surf,chan,lab);
+	storageHists[index]->Write();
+      }
     }
   }
   cout << "Saved storage hists" << endl;
   return;
 }
   
-
-
 
 
 
@@ -232,10 +277,12 @@ int main(int argc, char** argv) {
 
   WaveCalType::WaveCalType_t waveCalType;
 
-  TH2D* storageHists[96];
+  //make storage hists, (12 surfs x 8 chans x 4 labs)
+  TH2D* storageHists[12*8*4];
 
-  cout << "Doing kFull" << endl;
-  waveCalType = WaveCalType::kFull;
+  /*
+  cout << "Doing kNoCalib" << endl;
+  waveCalType = WaveCalType::kNoCalib;
   makeStorageHists(waveCalType,storageHists);
   fillStorageHists(waveCalType,storageHists);
   saveStorageHists(outFile,storageHists);
@@ -247,6 +294,15 @@ int main(int argc, char** argv) {
   fillStorageHists(waveCalType,storageHists);
   saveStorageHists(outFile,storageHists);
   deleteStorageHists(storageHists);
+  */
+  cout << "Doing kFull" << endl;
+  waveCalType = WaveCalType::kFull;
+  makeStorageHists(waveCalType,storageHists);
+  fillStorageHists(waveCalType,storageHists);
+  saveStorageHists(outFile,storageHists);
+  deleteStorageHists(storageHists);
+
+  
 
 
   outFile->Close();

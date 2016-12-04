@@ -22,6 +22,7 @@
 #include "RawAnitaHeader.h"
 #include "CalibratedAnitaEvent.h"
 #include "UsefulAnitaEvent.h"
+#include "sineUtils.h"
 
 using namespace std;
 
@@ -94,6 +95,10 @@ void sineFitting(TFile *outFile){
   int chans[12] = {4,2,4,2,4,2,4,4,2, 2, 2, 2};
 
 
+  
+  //get the pedestal corrections I made (12 surfs, 8 chans, 4 labs, 259 samples)
+  double pedCorrections[12*8*4*259];
+  loadPedCorrections(pedCorrections);
 
 
   //then lets make a histogram for each of those parameters, plus the residuals (which I'll need to calc)
@@ -146,14 +151,25 @@ void sineFitting(TFile *outFile){
     }
     eventNumber = rawEvent->eventNumber;
 
-    UsefulAnitaEvent *usefulRawEvent = new UsefulAnitaEvent(rawEvent,WaveCalType::kOnlyTiming,header);
+    UsefulAnitaEvent *usefulRawEvent = new UsefulAnitaEvent(rawEvent,WaveCalType::kFull,header);
     //I don't want to resample the alfa so I have to turn it's filtering off
     usefulRawEvent->setAlfaFilterFlag(false);
     
     for (int surfi=0; surfi<12; surfi++) {
       surf = surfs[surfi]-1;
       chan = chans[surfi]-1;
+      //from simpleStructs.h -> chanIndex = chan+9*surf
+      int usefulIndex = surf*9 + chan;
+      int lab = rawEvent->getLabChip(usefulIndex);
+
       TGraph *gr = usefulRawEvent->getGraphFromSurfAndChan(surf,chan);
+      TGraph *grCorr = new TGraph();
+      double x,y;
+      for (int pt=0; pt<gr->GetN(); pt++) {
+	gr->GetPoint(pt,x,y);
+	grCorr->SetPoint(pt,x,y-pedCorrections[pedIndex(surf,chan,lab,usefulRawEvent->fCapacitorNum[usefulIndex][pt])]);
+      }
+
 
       //from simpleStructs.h -> chanIndex = chan+9*surf
       chanIndex = chan+9*surf;
@@ -171,7 +187,7 @@ void sineFitting(TFile *outFile){
       sinFit->SetParName(1,"Phase");
       sinFit->SetParameter(2,0);
 
-      int fitStatus = gr->Fit(sinFit,"NQ"); //N=no draw, Q=quiet, M=more (better) fit?
+      int fitStatus = grCorr->Fit(sinFit,"NQ"); //N=no draw, Q=quiet, M=more (better) fit?
       //if the fit is no good tell me
       if (fitStatus != 0) {
 	cout << "fitStatus!=0 for entry=" << entry << " surfi=" << surfi << endl;
