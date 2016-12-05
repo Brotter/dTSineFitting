@@ -86,7 +86,7 @@ void openAnitaData() {
 
   int run = SINE_RUN;
 
-  string calDir = getenv("ANITA3_CALDATA")
+  string calDir = getenv("ANITA3_CALDATA");
 
   stringstream name;
   //Events Waveforms
