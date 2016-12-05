@@ -73,11 +73,12 @@
 
 
 
-  TFile *outFile = TFile::Open("dTGlobbedClusterResults.root");
+  TFile *outFile = TFile::Open("dTGlobbedClusterResults.root","recreate");
     for (int surf=0; surf<12; surf++) {
       for (int lab=0; lab<4; lab++) {
 	for (int rco=0; rco<2; rco++) {
 	  int dTArrayIndex = surf*8 + lab*2 + rco;
+	  outFile->cd();
 	  storageHists[dTArrayIndex]->Write();
 	}
       }
