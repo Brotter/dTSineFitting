@@ -41,6 +41,7 @@
 
   for (int cluster=0; cluster<4; cluster++) {
     for (int core=0; core<64; core++) {
+      cout << "cluster" << cluster << " core" << core << endl;
       int startEv = entriesPerCluster*cluster + core*entriesPerCore;
       name.str("");
       name << clusterDir << "dTOffsetFinder_stEv" << startEv << ".root";
