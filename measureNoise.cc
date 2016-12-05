@@ -23,6 +23,8 @@
 #include "CalibratedAnitaEvent.h"
 #include "UsefulAnitaEvent.h"
 
+#include "sineUtils.h"
+
 using namespace std;
 
 /*
@@ -38,29 +40,6 @@ using namespace std;
 
 
 
-int storageIndex(int surf, int chan, int lab) {
-  return surf*32 + chan*4 + lab;
-}
-
-
-int pedIndex(int surf, int chan, int lab, int sample) {
-  return (surf*8*4*259) + (chan*4*259) + (lab*259) + sample;
-}
-
-void loadPedCorrections(double* pedCorrections) {
-
-  ifstream inFile("pedCorrections.txt");
-
-  int surf,chan,lab,sample;
-  double pedCorr;
-  while (inFile >> surf >> chan >> lab >> sample >> pedCorr) {
-    pedCorrections[pedIndex(surf,chan,lab,sample)] = pedCorr;
-  }
-
-  return;
-
-
-}
 
 void fillStorageHists(WaveCalType::WaveCalType_t waveCalType, TH2D** storageHists, int run=-1) {
   /*

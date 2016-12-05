@@ -1,7 +1,16 @@
+#ifndef SINEUTILS
+#define SINEUTILS
+
 #include <math.h>
 #include <iostream>
 
 using namespace std;
+
+
+
+int storageIndex(int surf, int chan, int lab) {
+  return surf*32 + chan*4 + lab;
+}
 
 int pedIndex(int surf, int chan, int lab, int sample) {
   return (surf*8*4*259) + (chan*4*259) + (lab*259) + sample;
@@ -20,6 +29,23 @@ void loadPedCorrections(double* pedCorrections) {
   return;
 
 
+}
+
+
+TGraph *getCorrectedPedsGraph(UsefulAnitaEvent *useful,int surf,int chan,double* pedCorrections) {
+  TGraph *gr = useful->getGraphFromSurfAndChan(surf,chan);
+  TGraph *grCorr = new TGraph();
+  int usefulIndex = surf*9 + chan;
+  int lab = useful->getLabChip(usefulIndex);
+  double x,y;
+  for (int pt=0; pt<gr->GetN(); pt++) {
+    gr->GetPoint(pt,x,y);
+    double pedCorr = pedCorrections[pedIndex(surf,chan,lab,useful->fCapacitorNum[usefulIndex][pt])];
+    grCorr->SetPoint(pt,x,y-pedCorr);
+  }
+
+  delete gr;
+  return grCorr;
 }
 
 
@@ -60,3 +86,31 @@ double findXOffset(double amp, double freq, double phase, double offset, double 
     temp2 = temp1;
   }
   double temp3 = temp2 - phase;
+
+  //  cout << "y=" << yValue << " temps: " << temp0 << " " << temp1  << " " << temp2 << " " << temp3 << "<-----------------------------" << endl;
+
+  //  double x = asin(( (yValue*pow(-1,perN) )-offset)/amp)-phase+(M_PI*perN)/freq;
+  //  cout << x << endl;
+
+  //so then the "correction" should be the difference betwen that and the initial value!
+  double xCorrectionAngle = temp2-xAngle;
+  //this is circular again, so we need to correct for things that are 2pi separated
+  if (xCorrectionAngle > M_PI) {
+    xCorrectionAngle -= 2.*M_PI;
+  }
+  else if (xCorrectionAngle < -M_PI) {
+    xCorrectionAngle += 2.*M_PI;
+  }
+  //and the x is that angle scaled by frequency
+  double xCorrection = xCorrectionAngle/(freq*2.*M_PI);
+      
+  //  cout << "Final: " << xCorrectionAngle << " " << xCorrection << endl;
+  
+  return xCorrection;
+
+}
+
+
+
+
+#endif
