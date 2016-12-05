@@ -39,7 +39,6 @@
     }
   }
 
-  stringstream name;
   for (int cluster=0; cluster<4; cluster++) {
     for (int core=0; core<64; core++) {
       int startEv = entriesPerCluster*cluster + core*entriesPerCore;
@@ -54,7 +53,7 @@
 	  TH2D *inputHist = (TH2D*)inFile->Get(name.str().c_str());
 	  int dTArrayIndex = surf*8 + lab*2 + rco;
 	  for (int binX=0; binX<260; binX++) {
-	    for (int binY=0; binY<1001,binY++) {
+	    for (int binY=0; binY<1001;binY++) {
 	      double binCenterX = inputHist->GetXaxis()->GetBinCenter(binX);
 	      double binCenterY = inputHist->GetYaxis()->GetBinCenter(binY);
 	      storageHists[dTArrayIndex]->Fill(binCenterX,binCenterY,inputHist->GetBinContent(binX,binY));
