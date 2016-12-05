@@ -15,7 +15,7 @@
   int clusterNum=0;
 
 
-  string clusterDir = "/home/brotter/nfsShared/results/dTSineFitting/rootFiles/";
+  string clusterDir = "/home/brotter/nfsShared/results/dTSineFitting/";
 
   //this bin has a weird distribution
   int surf=0;
@@ -44,8 +44,8 @@
 	double binCenterY = inputHist->GetYaxis()->GetBinCenter(binY);
 	timeHist->Fill(timeBin,binCenterY,inputHist->GetBinContent(binX,binY));
       }
+      inFile->Close();
     }
-    inFile->Close();
   }
 
   timeHist->Draw("colz");
