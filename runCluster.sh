@@ -1,5 +1,7 @@
 #!/bin/bash
 
+outputDir=/home/brotter/nfsShared/results/dTSineFitting/
+
 numEntries=540800
 entriesPerCluster=$((numEntries/4))
 entriesPerCore=$((numEntries/256))
@@ -13,5 +15,5 @@ else echo "You aren't on a server I recognize!"; fi
 for core in `seq 0 64`; do
     startEv=$((entriesPerCluster*clusterNum + core*entriesPerCore))
     stopEv=$((entriesPerCluster*clusterNum + (core+1)*entriesPerCore))
-    ./dTOffsetFinder rootFiles/dTOffsetFinder_stEv${startEv}.root ${startEv} ${stopEv}  >> logs/${i}.log &
+    ./dTOffsetFinder ${outputDir}/dTOffsetFinder_stEv${startEv}.root ${startEv} ${stopEv}  >> logs/${startEv}.log &
 done

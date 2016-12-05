@@ -86,11 +86,13 @@ void openAnitaData() {
 
   int run = SINE_RUN;
 
+  string calDir = getenv("ANITA3_CALDATA")
+
   stringstream name;
   //Events Waveforms
   rawEventTree = new TChain("eventTree","");
   name.str("");
-  name << "/Volumes/ANITA3Data/antarctica14/root/run" << run << "/eventFile" << run << ".root";
+  name << calDir << "/root/run" << run << "/eventFile" << run << ".root";
   rawEventTree->Add(name.str().c_str());
   cout << "Adding: " << name.str() << endl;
   int lenRawEventTree = rawEventTree->GetEntries();
@@ -99,7 +101,7 @@ void openAnitaData() {
   //Event Headers
   headTree = new TChain("headTree","");
   name.str("");
-  name << "/Volumes/ANITA3Data/antarctica14/root/run" << run << "/headFile" << run << ".root";
+  name << calDir << "/root/run" << run << "/headFile" << run << ".root";
   headTree->Add(name.str().c_str());
   cout << "Adding: " << name.str() << endl;
   int lenHeadTree = headTree->GetEntries();
