@@ -1,4 +1,6 @@
-{
+#include "sineUtils.h"
+
+void globClusterFiles(){
 
 
   /*
@@ -63,7 +65,7 @@
       TFile *inFile = TFile::Open(name.str().c_str());
 
       TTree *inTree = (TTree*)inFile->Get("fitTree");
-      for (int entry=0; entry<inTree->GetN(); entry++) {
+      for (int entry=0; entry<inTree->GetEntries(); entry++) {
 	inTree->GetEntry(entry);
 	fitTree->Fill();
       }
