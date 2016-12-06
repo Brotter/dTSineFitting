@@ -32,7 +32,6 @@ void loadPedCorrections(double* pedCorrections) {
 
   return;
 
-
 }
 
 
@@ -143,7 +142,7 @@ TF1* sineWaveFitter(TGraph *graphToFit) {
 
 
 //also I guess I'll make the whole sine fit tree stuff too
-TTree *fitTree = new TTree("fitTree","fitTree");
+TTree *fitTree = NULL;
 double amp,freq,phase,offset,resid;
 int chanIndex,rco,lab,surf,chan,eventNumber;
 
@@ -161,6 +160,17 @@ void makeFitTree() {
 
   return;
 }
+
+void setFitTreeBranches(TTree *inTree){
+  inTree->SetBranchAddress("eventNumber",&eventNumber);
+  inTree->SetBranchAddress("amp",&amp);
+  inTree->SetBranchAddress("phase",&phase);
+  inTree->SetBranchAddress("residual",&resid);
+  inTree->SetBranchAddress("chanIndex",&chanIndex);
+  inTree->SetBranchAddress("rco",&rco);
+  inTree->SetBranchAddress("lab",&lab);
+  inTree->SetBranchAddress("surf",&surf);
+  inTree->SetBranchAddress("chan",&chan);
 
 
 
