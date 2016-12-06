@@ -58,7 +58,6 @@ void fillStorageHists(WaveCalType::WaveCalType_t waveCalType, TH2D** storageHist
   
   
   //get the pedestal corrections I made (12 surfs, 8 chans, 4 labs, 259 samples)
-  double pedCorrections[12*8*4*259];
   loadPedCorrections(pedCorrections);
 
 

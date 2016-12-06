@@ -4,6 +4,8 @@
 #include <math.h>
 #include <iostream>
 
+//#include "UsefulAnitaEvent.h"
+
 using namespace std;
 
 
@@ -13,14 +15,14 @@ int storageIndex(int surf, int chan, int lab) {
 }
 
 int pedIndex(int surf, int chan, int lab, int sample) {
+  if (sample==0) cout << "pedIndex(): WARNING!  You're indexing me wrong, start at 1" << endl;
   return (surf*8*4*259) + (chan*4*259) + (lab*259) + sample;
 }
 
 
 //and the ped corrections
 double pedCorrections[12*8*4*260];
-
-void loadPedCorrections(double* pedCorrections) {
+void loadPedCorrections() {
 
   ifstream inFile("pedCorrections.txt");
 
