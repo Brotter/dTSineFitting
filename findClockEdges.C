@@ -59,6 +59,11 @@ void findClockEdges(int startRun, int stopRun,char* outFilename){
 
   
   int lenEntries = headTree->GetEntries();;
+  if (lenEntries == 0) {
+    cout << "There aren't any events, I quit goodbye!" << endl;
+    return;
+  }
+
   //  lenEntries = 50000;
   //Loop Through Entries
   for (int entry=0; entry<lenEntries; entry++) {
