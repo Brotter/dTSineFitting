@@ -54,33 +54,10 @@ using namespace std;
 TChain *rawEventTree;
 RawAnitaEvent *rawEvent = NULL;
 TChain *headTree;
-RawAnitaHeader *header  = NULL;
-
-//also I guess I'll make the whole sine fit tree stuff too
-TTree *fitTree = new TTree("fitTree","fitTree");
-double amp,freq,phase,offset,resid;
-int chanIndex,rco,lab,surf,chan,eventNumber;
-
-//and the ped corrections
-double pedCorrections[12*8*4*260];
+RawAnitaHeader *header  = NULL;  
 
 
-void makeFitTree() {
-  fitTree = new TTree("fitTree","fitTree");
-  fitTree->Branch("eventNumber",&eventNumber);
-  fitTree->Branch("amp",&amp);
-  fitTree->Branch("phase",&phase);
-  fitTree->Branch("residual",&resid);
-  fitTree->Branch("chanIndex",&chanIndex);
-  fitTree->Branch("rco",&rco);
-  fitTree->Branch("lab",&lab);
-  fitTree->Branch("surf",&surf);
-  fitTree->Branch("chan",&chan);
-
-  return;
-}
-  
-
+//There are other globals in sineUtils.h if you are looking for them
 
 void openAnitaData() {
 
@@ -119,41 +96,6 @@ void openAnitaData() {
 
   return;
 
-}
-
-
-TF1* sineWaveFitter(TGraph *graphToFit) {
-  
-  //Lets define the sine fit function (I don't know what I should do for the range...)
-  //Since the phase is the biggest generator of error, and the freq is very constant, lets try
-  /// hard coding those?
-  TF1 *sinFit = new TF1("sinFit","[0]*sin(x*0.4321*2.*3.14159+[1])",20.,80.);
-  sinFit->SetParName(0,"Amplitude");
-  sinFit->SetParameter(0,200.);
-  
-  sinFit->SetParName(1,"Phase");
-  sinFit->SetParameter(1,0);
-
-  int fitStatus = graphToFit->Fit(sinFit,"NQ"); //N=no draw, Q=quiet, M=more (better) fit?
-  if (fitStatus != 0) {   //if the fit is no good tell me about it
-    cout << "fitStatus != 0" << endl;
-    return NULL;
-  }
-  else {   //otherwise if the fit is good, fill the histograms
-    amp = sinFit->GetParameter(0);
-    phase = sinFit->GetParameter(1);
-	
-    double absResidSum = 0;
-    for (int pt = 0; pt<graphToFit->GetN(); pt++) {
-      absResidSum += pow(graphToFit->GetY()[pt] - sinFit->Eval(graphToFit->GetX()[pt]),2);
-    }
-    absResidSum /= graphToFit->GetN();
-    resid = TMath::Sqrt(absResidSum);
-
-    fitTree->Fill();
-  }
-  return sinFit;
-  
 }
 
 
@@ -226,8 +168,23 @@ int makeOffsetHists(TFile* outFile,int startEntry, int stopEntry) {
       TF1* sineFit = sineWaveFitter(waveform);
       if (sineFit == NULL) {
 	cout << "Entry" << entry << " ... Bad Fit ... Skipping ..." << endl;
-	break;
+	delete useful;
+	delete waveform;
+	continue;  //if the fit sucks just move on
       }
+
+      //otherwise if the fit is good, fill the fit tree
+      amp = sineFit->GetParameter(0);
+      phase = sineFit->GetParameter(1);      
+      double absResidSum = 0;
+      for (int pt = 0; pt<waveform->GetN(); pt++) {
+	absResidSum += pow(waveform->GetY()[pt] - sineFit->Eval(waveform->GetX()[pt]),2);
+      }
+      absResidSum /= waveform->GetN();
+      resid = TMath::Sqrt(absResidSum);
+      
+      fitTree->Fill();
+
 
       //lets make a cut on a sort of "fit goodness" as define by me
       //    if (!(freq<0.44 && freq>0.43 && phase<4 && phase > -4 && amp > 80 && amp < 400

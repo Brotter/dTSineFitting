@@ -16,6 +16,10 @@ int pedIndex(int surf, int chan, int lab, int sample) {
   return (surf*8*4*259) + (chan*4*259) + (lab*259) + sample;
 }
 
+
+//and the ped corrections
+double pedCorrections[12*8*4*260];
+
 void loadPedCorrections(double* pedCorrections) {
 
   ifstream inFile("pedCorrections.txt");
@@ -113,4 +117,52 @@ double findXOffset(double amp, double freq, double phase, double offset, double 
 
 
 
+TF1* sineWaveFitter(TGraph *graphToFit) {
+  
+  //Lets define the sine fit function (I don't know what I should do for the range...)
+  //Since the phase is the biggest generator of error, and the freq is very constant, lets try
+  /// hard coding those?
+  double xMin = graphToFit->GetX()[0];
+  double xMax = graphToFit->GetX()[graphToFit->GetN()-1];
+  TF1 *sinFit = new TF1("sinFit","[0]*sin(x*0.4321*2.*3.14159+[1])",xMin,xMax);
+  sinFit->SetParName(0,"Amplitude");
+  sinFit->SetParameter(0,200.);
+  
+  sinFit->SetParName(1,"Phase");
+  sinFit->SetParameter(1,0);
+
+  int fitStatus = graphToFit->Fit(sinFit,"NQ"); //N=no draw, Q=quiet, M=more (better) fit?
+  if (fitStatus != 0) {   //if the fit is no good tell me about it
+    cout << "fitStatus != 0" << endl;
+    return NULL;
+  }
+
+  return sinFit;
+  
+}
+
+
+//also I guess I'll make the whole sine fit tree stuff too
+TTree *fitTree = new TTree("fitTree","fitTree");
+double amp,freq,phase,offset,resid;
+int chanIndex,rco,lab,surf,chan,eventNumber;
+
+void makeFitTree() {
+  fitTree = new TTree("fitTree","fitTree");
+  fitTree->Branch("eventNumber",&eventNumber);
+  fitTree->Branch("amp",&amp);
+  fitTree->Branch("phase",&phase);
+  fitTree->Branch("residual",&resid);
+  fitTree->Branch("chanIndex",&chanIndex);
+  fitTree->Branch("rco",&rco);
+  fitTree->Branch("lab",&lab);
+  fitTree->Branch("surf",&surf);
+  fitTree->Branch("chan",&chan);
+
+  return;
+}
+
+
+
 #endif
+

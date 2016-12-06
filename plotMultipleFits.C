@@ -1,72 +1,5 @@
 #include "AnitaConventions.h"
-
-
-
-double findOffset(double amp, double freq, double phase, double offset, double xValue, double yValue) {
-
-  //  cout << "params " <<  amp << " " << freq << " " << phase << " " << offset << endl;
-
-
-  //first lets determine which half-period of the sine wave this is (from x I guess)
-  double period = 1./freq;
-  double xAngle = fmod((xValue*freq*2*M_PI + phase),(2.*M_PI)); //this should be 0->2pi
-  
-  //I have to figure out if it is in quadrant 2 or 3
-  int quadrant = 0;
-  if (xAngle > M_PI/2. && xAngle <= M_PI) {
-    quadrant = 2;
-  }
-  else if (xAngle > M_PI && xAngle <= (3./2.)*M_PI) {
-    quadrant = 3;
-  }
-
-  //  cout << "x=" << xValue << "|" << fmod(xValue,period) << " xAngle " << xAngle << " " << quadrant << endl;
-
-  //determine what the angle should be of something with that y
-  double temp0 = (yValue - offset)/amp;
-  //thats the normalized value, so we can figure out what angle that is;
-  double temp1 = asin( temp0 );
-  //if the x value is in the "odd" region not returned by asin, need to shift it into that region
-  double temp2;
-  if (quadrant == 2) {
-    temp2 = M_PI - temp1;
-  }
-  else if (quadrant == 3) {
-    temp2 = 3.*M_PI - temp1;
-  }
-  else {
-    temp2 = temp1;
-  }
-  double temp3 = temp2 - phase;
-
-
-  //  cout << "y=" << yValue << " temps: " << temp0 << " " << temp1  << " " << temp2 << " " << temp3 << "<-----------------------------" << endl;
-
-  //  double x = asin(( (yValue*pow(-1,perN) )-offset)/amp)-phase+(M_PI*perN)/freq;
-  //  cout << x << endl;
-
-  //so then the "correction" should be the difference betwen that and the initial value!
-  double xCorrectionAngle = temp2-xAngle;
-  //this is circular again, so we need to correct for things that are 2pi separated
-  if (xCorrectionAngle > M_PI) {
-    xCorrectionAngle -= 2.*M_PI;
-  }
-  else if (xCorrectionAngle < -M_PI) {
-    xCorrectionAngle += 2.*M_PI;
-  }
-  //and the x is that angle scaled by frequency
-  double xCorrection = xCorrectionAngle/(freq*2.*M_PI);
-      
-  //  cout << "Final: " << xCorrectionAngle << " " << xCorrection << endl;
-  
-  return xCorrection;
-
-}
-
-
-
-
-
+#include "sineUtils.h"
 
 
 void plotMultipleFits(){
@@ -77,25 +10,6 @@ void plotMultipleFits(){
   
   stringstream name;  
 
-
-  //get the fit file
-  //TFile *fitFile = TFile::Open("/Volumes/ANITA3Data/bigAnalysisFiles/sineCalibCheck_all10105_normalized.root");
-  TFile *fitFile = TFile::Open("sineCalibCheck_adc.root");
-  TTree *fitTree = (TTree*)fitFile->Get("fitTree");
-  double amp,freq,phase,residual,offset;
-  int eventNumber,chanIndex,rco,lab,surf;
-  fitTree->SetBranchAddress("eventNumber",&eventNumber);
-  fitTree->SetBranchAddress("amp",&amp);
-  fitTree->SetBranchAddress("freq",&freq);
-  fitTree->SetBranchAddress("phase",&phase);
-  fitTree->SetBranchAddress("offset",&offset);
-  fitTree->SetBranchAddress("residual",&residual);
-  fitTree->SetBranchAddress("chanIndex",&chanIndex);
-  fitTree->SetBranchAddress("rco",&rco);
-  fitTree->SetBranchAddress("lab",&lab);
-  fitTree->SetBranchAddress("surf",&surf);
-  int lenFitTree = fitTree->GetEntries();
-  cout << "fitTree->GetEntres()=" << lenFitTree << endl;
 
   //Channels with the sine wave in them (All Surfs, 1->12):
   //4,2,4,2,4,2,4,4,2,2,2,2
@@ -119,10 +33,6 @@ void plotMultipleFits(){
   cout << "Adding: " << name.str() << endl;
   cout << "headTree Entries: " << headTree->GetEntries() << endl;
 
-  //I am calling event numbers so I need to build some indexes
-  rawEventTree->BuildIndex("eventNumber");
-  headTree->BuildIndex("eventNumber");
-
   //Set Branch Addresses
   RawAnitaEvent *rawEvent = NULL;
   rawEventTree->SetBranchAddress("event",&rawEvent);
@@ -130,33 +40,88 @@ void plotMultipleFits(){
   RawAnitaHeader *header = NULL;
   headTree->SetBranchAddress("header",&header);
 
-  
-  //make the canvas
-  TCanvas *c1 = new TCanvas("canvas","canvas",1024,800);
+
+  //get the pedestal correction
+  double pedCorrections[12*8*4*260];
+  loadPedCorrections(pedCorrections);
 
 
-  //Lets define the sine fit function (I don't know what I should do for the range...)
-  TF1 *sinFit = new TF1("sinFit","[0]*sin(x*[1]+[2])+[3]",20.,80.);
-    
+  //and I'm only looking at one channel and one lab
+  int surf=0;
+  int chan=3;
+  int usefulIndex = surf*9+chan;
+  int lab=0;
+  int rco=0;
 
-  for (int entry=0; entry<fitTree->GetEntries(); entry++) {
-    fitTree->GetEntry(entry);
-    rawEventTree->GetEntryWithIndex(eventNumber);
-    headTree->GetEntryWithIndex(eventNumber);
+
+  //I want to keep the residuals by cap updating
+  TH2D *hXResidCap = new TH2D("hXResidCap","X Residuals By Cap;Cap Number; Time Residual(ns)",
+			      260,-0.5,259.5,  101,-0.1,0.1);
+  hXResidCap->SetStats(0);
+
+  TFile *outFile = TFile::Open("plotMultipleFits.root","recreate");
+
+  int lenEntries = headTree->GetEntries();
+  lenEntries = 1000;
+  for (int entry=0; entry<10; entry++) {
+    rawEventTree->GetEntry(entry);
+    headTree->GetEntry(entry);
 
     UsefulAnitaEvent *usefulRawEvent = new UsefulAnitaEvent(rawEvent,WaveCalType::kFull,header);
     //I don't want to resample the alfa so I have to turn it's filtering off
     usefulRawEvent->setAlfaFilterFlag(false);
-    
-    //get the graph (and the chan)
-    int chan = chans[surf]-1;
-    TGraph *gr = usefulRawEvent->getGraphFromSurfAndChan(surf,chan);
-      
-    //create the fit graph
-    sinFit->SetParameter(0,amp);
-    sinFit->SetParameter(1,freq*2.*M_PI);
-    sinFit->SetParameter(2,phase);
-    sinFit->SetParameter(3,offset);
+
+    //only interested in the first lab!
+    if (usefulRawEvent->getLabChip(usefulIndex) != lab) {
+      delete usefulRawEvent;
+      continue;
+    }
+    //only interested when we are looking at RCO 0
+    if (usefulRawEvent->getRCO(usefulIndex) != rco) {
+      delete usefulRawEvent;
+      continue;
+    }
+
+  
+    //make the canvas
+    name.str("");
+    name << "cEntry" << entry;
+    TCanvas *c1 = new TCanvas(name.str().c_str(),name.str().c_str(),1024,800);
+
+    //get the waveform
+    TGraph *rawWaveform = getCorrectedPedsGraph(usefulRawEvent,surf,chan,pedCorrections);
+
+    //only do one RCO phase at a time I guess (so make a new waveform with only that many points
+    TGraph *waveform = new TGraph();
+    int capNumber = usefulRawEvent->fCapacitorNum[usefulIndex][0];
+    for (int pt=0; pt<rawWaveform->GetN(); pt++) {
+      int newCapNumber = usefulRawEvent->fCapacitorNum[usefulIndex][pt];
+      if (abs(capNumber - newCapNumber) > 1) {
+	break; //stop if you find the place it wraps around;
+      }
+      else {
+	waveform->SetPoint(waveform->GetN(),rawWaveform->GetX()[pt],rawWaveform->GetY()[pt]);
+	capNumber = newCapNumber;
+      }
+    }
+
+    cout << waveform->GetN() << endl;
+
+    //fit a sine wave to it
+    TF1* sineFit = sineWaveFitter(waveform);
+    if (sineFit == NULL) {
+      cout << "Entry" << entry << " ... Bad Fit ... Skipping ..." << endl;
+      delete usefulRawEvent;
+      delete waveform;
+      continue;
+    }
+
+    double amp = sineFit->GetParameter(0);
+    double phase = sineFit->GetParameter(1);
+    double freq = 0.4321;
+    double offset = 0.0;
+
+    //make a TGraph from that fit
     TGraph *grFit = new TGraph();
     grFit->SetMarkerColor(kRed);
     grFit->SetLineColor(kRed);
@@ -164,64 +129,93 @@ void plotMultipleFits(){
     double grY = 0;
     for (int pt=0; pt<1000; pt++) {
       grX = (pt-50)*0.1;
-      grFit->SetPoint(grFit->GetN(),grX,sinFit->Eval(grX));
+      if (grX-10 > waveform->GetX()[waveform->GetN()-1]){
+	break;
+      }
+      grFit->SetPoint(grFit->GetN(),grX,sineFit->Eval(grX));
     }
      
-    //create the graph of X residuals
-    TGraph *grResid = new TGraph();
-    for (int pt=0; pt<gr->GetN(); pt++) {
-      grX = gr->GetX()[pt];
-      grResid->SetPoint(grResid->GetN(),grX,gr->GetY()[pt] - sinFit->Eval(grX));
+    //create the graph of Y residuals
+    TGraph *grYResid = new TGraph();
+    for (int pt=0; pt<waveform->GetN(); pt++) {
+      grX = waveform->GetX()[pt];
+      grYResid->SetPoint(grYResid->GetN(),grX,waveform->GetY()[pt] - sineFit->Eval(grX));
     }
       
+
     //clear the canvas and set it up
     c1->Clear();
-    c1->Divide(1,2);
+    c1->Divide(1,3);
 
     //plot the event with a title
     c1->cd(1);
     name.str("");
-    name << "surf" << surf+1 << " lab" << lab << " rco" << rco << ";Time(ns);Voltage(mV)";
-    gr->SetTitle(name.str().c_str());
-    gr->Draw("alp");
-    grFit->Draw("lpSame");
+    name << "eventNumber: " << header->eventNumber << ";Time(ns);Voltage(mV)";
+    waveform->SetTitle(name.str().c_str());
+    waveform->Draw("ap");
+    grFit->Draw("lSame");
     TLegend *leg = new TLegend(0.1,0.7,0.48,0.9);
-    leg->AddEntry(gr,"Calibrated Anita Event","lp");
-    leg->AddEntry(grFit,"Sine Wave Fit","lp");
+    leg->AddEntry(waveform,"Calibrated Anita Event","p");
+    leg->AddEntry(grFit,"Sine Wave Fit","l");
     leg->Draw("same");
       
     //also draw the "x" residuals and the arrow from one to another
-    TGraph *xResiduals = new TGraph();
-    xResiduals->SetTitle("X Residuals;Time(ns);Time Residual(ns)");
-    for (int pt=0; pt<gr->GetN(); pt++) {
-      gr->GetPoint(pt,grX,grY);
-      if (abs(grY) > 0.8*amp || grX<1) { //I can't seem to do stuff below 0 correctly
+    // as well as the residuals AS A FUNCTION OF CAPACITOR NUMBER
+    TGraph *grXResid = new TGraph();
+    grXResid->SetTitle("X Residuals;Time(ns);Time Residual(ns)");
+    for (int pt=0; pt<waveform->GetN(); pt++) {
+      waveform->GetPoint(pt,grX,grY);
+      if (abs(grY) > 0.8*abs(amp) || grX<1) { //I can't seem to do stuff below 0 correctly
 	continue;
       }
-      double xCorrection = findOffset(amp,freq,phase,offset,grX,grY);
+      double xCorrection = findXOffset(amp,freq,phase,offset,grX,grY);
       TArrow *temp = new TArrow(grX,grY,grX+xCorrection,grY,0.005,"|>");
-      xResiduals->SetPoint(xResiduals->GetN(),grX,xCorrection);
+      grXResid->SetPoint(grXResid->GetN(),grX,xCorrection);
+      if (abs(xCorrection) < 0.2 ) { //only store them if they aren't crazy to keep the scale good
+	hXResidCap->Fill(usefulRawEvent->fCapacitorNum[usefulIndex][pt],xCorrection);
+      }
       temp->SetLineColor(kBlue);
       temp->SetFillColor(kBlue);
       //	cout << grX << " " << grX-xCorrection << endl;
       temp->Draw();
     }
+
+
+
+    c1->cd(3);
+    hXResidCap->Draw("colz");
+
     
     c1->cd(2);
     //    grResid->SetTitle("Residuals;Time (ns);Voltage(mV)");
     //    grResid->Draw("alp");
-    xResiduals->Draw("alp");
-    
-    c1->Update();
+    if (grXResid->GetN()==0) {
+      cout << "no x resids?" << endl;
+      c1->Update();
+      sleep(2);
+    }
+    else {
+      grXResid->Draw("alp");
+      c1->Update();
+    }
+
+    outFile->cd();
+    c1->Write();
+    delete c1;
+
     usleep(500000);
 
     //delete all the crap I made
-    delete xResiduals;
     delete leg;
-    delete grResid;
+    delete grXResid;
+    delete grYResid;
     delete grFit;
-    delete gr;
+    delete waveform;
+    delete rawWaveform;
     delete usefulRawEvent;
+    delete sineFit;
+    //    delete grXResidCap;
+
 
   }
 

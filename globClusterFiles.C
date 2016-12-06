@@ -1,7 +1,12 @@
 {
 
 
-  /*The cluster spits out a bunch of histograms that need to be smooshed together
+  /*
+
+    The cluster spits out a bunch of histograms that need to be smooshed together, so this smooshes
+
+    Also there is a TTree that needs to be smooshed
+
    */
 
 
@@ -13,6 +18,10 @@
 
 
   string clusterDir = "/home/brotter/nfsShared/results/dTSineFitting/";
+
+
+  TFile *outFile = TFile::Open("dTGlobbedClusterResults.root","recreate");
+
 
   //output storage histograms (need 96 2D histograms I guess... (bin# vs offset))
   stringstream title,name;
@@ -39,6 +48,12 @@
     }
   }
 
+
+  //output Fit tree
+  outFile->cd();
+  makeFitTree();
+
+
   for (int cluster=0; cluster<4; cluster++) {
     for (int core=0; core<64; core++) {
       cout << "cluster" << cluster << " core" << core << endl;
@@ -46,6 +61,13 @@
       name.str("");
       name << clusterDir << "dTOffsetFinder_stEv" << startEv << ".root";
       TFile *inFile = TFile::Open(name.str().c_str());
+
+      TTree *inTree = (TTree*)inFile->Get("fitTree");
+      for (int entry=0; entry<inTree->GetN(); entry++) {
+	inTree->GetEntry(entry);
+	fitTree->Fill();
+      }
+
     for (int surf=0; surf<12; surf++) {
       for (int lab=0; lab<4; lab++) {
 	for (int rco=0; rco<2; rco++) {
@@ -69,11 +91,6 @@
 
 
   
-
-
-
-
-  TFile *outFile = TFile::Open("dTGlobbedClusterResults.root","recreate");
     for (int surf=0; surf<12; surf++) {
       for (int lab=0; lab<4; lab++) {
 	for (int rco=0; rco<2; rco++) {
@@ -83,6 +100,8 @@
 	}
       }
     }
+    outFile->cd();
+    fitTree->Write();
 
 
     return;
