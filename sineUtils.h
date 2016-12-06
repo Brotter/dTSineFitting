@@ -171,7 +171,7 @@ void setFitTreeBranches(TTree *inTree){
   inTree->SetBranchAddress("lab",&lab);
   inTree->SetBranchAddress("surf",&surf);
   inTree->SetBranchAddress("chan",&chan);
-
+}
 
 
 #endif
