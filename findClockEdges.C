@@ -1,6 +1,6 @@
 #include "AnitaConventions.h"
 
-void findClockEdges(){
+void findClockEdges(int startRun, int stopRun,char* outFilename){
 
   /*
 
@@ -25,7 +25,7 @@ void findClockEdges(){
   stringstream name;
   TChain *rawEventTree = new TChain("eventTree","");
   TChain *headTree = new TChain("headTree","");
-  for (int run=10; run<21; run++) {
+  for (int run=startRun; run<stopRun; run++) {
     if (run==11) continue;  //this run is broken;
 
     //Events Waveforms       
@@ -92,7 +92,7 @@ void findClockEdges(){
   hDownEdgesCap->Draw("colz");
 
 
-  TFile *outFile = TFile::Open("findClockEdges.root","recreate");
+  TFile *outFile = TFile::Open(outFilename,"recreate");
   hDownEdgesPt->Write();
   hDownEdgesCap->Write();
   outFile->Close();
