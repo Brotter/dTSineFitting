@@ -17,5 +17,5 @@ echo "You are on server "${clusterNum}
 for core in `seq 0 64`; do
     startEv=$((entriesPerCluster*clusterNum + core*entriesPerCore))
     stopEv=$((entriesPerCluster*clusterNum + (core+1)*entriesPerCore))
-    ./dTOffsetFinder ${outputDir}/dTOffsetFinder_stEv${startEv}.root ${startEv} ${stopEv}  >> logs/${startEv}.log &
+    ./dTOffsetFinder ${outputDir}/dTOffsetFinder_stEv${startEv}.root ${startEv} ${stopEv}  2>&1 >> logs/${startEv}.log &
 done
