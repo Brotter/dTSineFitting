@@ -17,6 +17,8 @@ void findClockEdges(int startRun, int stopRun,string outFilename){
   TH2D * hDownEdgesCap = new TH2D("hDownEdgesCap","Sync Clock Location; Surf; Sync Clock Upgoing Edge Capacitor",
 				 96,-0.5,95.5,   260,-0.5,259.5);
 
+  TH1D *hClockPeriod = new TH1D("hClockPeriod","Sync Clock Period (All Channels);Clock Period (bins);Occupancy",
+				260,-0.5,259.5);
 
   
   //import the sine wave run
@@ -66,7 +68,7 @@ void findClockEdges(int startRun, int stopRun,string outFilename){
   }
 
   int numEntriesProcessed = 0;
-  lenEntries = 1500;
+  //  lenEntries = 1500;
   //Loop Through Entries
   for (int entry=0; entry<lenEntries; entry++) {
     headTree->GetEntry(entry);
@@ -89,20 +91,29 @@ void findClockEdges(int startRun, int stopRun,string outFilename){
 
       double x,y;
       double prevY = gSyncClock->GetY()[0];
+      int clockPeriod = -1;      
       for (int pt=0; pt<gSyncClock->GetN(); pt++) {
 	gSyncClock->GetPoint(pt,x,y);
 	int capNum = useful->fCapacitorNum[usefulIndex][pt];
-	if (capNum==1) rco = 1 - rco; //switch which RCO it is when we wrap around
+	if (capNum==1) { //switch which RCO it is when we wrap around
+	  rco = 1 - rco; 
+	  clockPeriod = -1; // also reset the clock period thing because now it will be inaccurate
+	}
 	if ( (prevY>0) && (y<0) ) { //downgoing edge
 	  hDownEdgesPt->Fill(surf*8+lab*2+rco,pt);
 	  hDownEdgesCap->Fill(surf*8+lab*2+rco,capNum);
-	}
+	  if (clockPeriod != -1) {
+	    hClockPeriod->Fill(clockPeriod);
+	  }
+	  else clockPeriod = 0;
+	} //endif downgoing edge
 	prevY = y;
-      }
+	if (clockPeriod != -1) clockPeriod++;
+      } //endfor pt
       delete gSyncClock;
-    }
+    } //endfor surf
     delete useful;
-  }
+  } //endfor entry
 
   cout << "numEntriesProcessed:" << numEntriesProcessed << endl;
 
@@ -112,6 +123,7 @@ void findClockEdges(int startRun, int stopRun,string outFilename){
   TFile *outFile = TFile::Open(outFilename.c_str(),"recreate");
   hDownEdgesPt->Write();
   hDownEdgesCap->Write();
+  hClockPeriod->Write();
   outFile->Close();
 
 
