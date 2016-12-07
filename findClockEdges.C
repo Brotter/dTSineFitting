@@ -1,6 +1,6 @@
 #include "AnitaConventions.h"
 
-void findClockEdges(int startRun, int stopRun,char* outFilename){
+void findClockEdges(int startRun, int stopRun,string outFilename){
 
   /*
 
@@ -11,10 +11,11 @@ void findClockEdges(int startRun, int stopRun,char* outFilename){
 
 
   //make storage histograms (one per surf I guess, so just a TH2D!)
+  //also 4 labs per surf and 2 rco phases per lab!!! (96 total)
   TH2D * hDownEdgesPt  = new TH2D("hDownEdgesPt","Sync Clock Location; Surf; Sync Clock Upgoing Edge Ordered Bin",
-				 12,-0.5,11.5,   260,-0.5,259.5);
+				 96,-0.5,95.5,   260,-0.5,259.5);
   TH2D * hDownEdgesCap = new TH2D("hDownEdgesCap","Sync Clock Location; Surf; Sync Clock Upgoing Edge Capacitor",
-				 12,-0.5,11.5,   260,-0.5,259.5);
+				 96,-0.5,95.5,   260,-0.5,259.5);
 
 
   
@@ -64,11 +65,14 @@ void findClockEdges(int startRun, int stopRun,char* outFilename){
     return;
   }
 
-  //  lenEntries = 50000;
+  int numEntriesProcessed = 0;
+  lenEntries = 1500;
   //Loop Through Entries
   for (int entry=0; entry<lenEntries; entry++) {
     headTree->GetEntry(entry);
     rawEventTree->GetEntry(entry);
+
+    numEntriesProcessed++;
 
     if (entry%100 == 0) {
       cout << entry << "/" << lenEntries << "\r"; 
@@ -78,13 +82,20 @@ void findClockEdges(int startRun, int stopRun,char* outFilename){
 
     for (int surf=0; surf<12; surf++) {
       TGraph *gSyncClock = useful->getGraphFromSurfAndChan(surf,8);
+
+      int usefulIndex = surf*9+8;
+      int lab = useful->getLabChip(usefulIndex);
+      int rco = useful->getRCO(usefulIndex);
+
       double x,y;
       double prevY = gSyncClock->GetY()[0];
       for (int pt=0; pt<gSyncClock->GetN(); pt++) {
 	gSyncClock->GetPoint(pt,x,y);
+	int capNum = useful->fCapacitorNum[usefulIndex][pt];
+	if (capNum==1) rco = 1 - rco; //switch which RCO it is when we wrap around
 	if ( (prevY>0) && (y<0) ) { //downgoing edge
-	  hDownEdgesPt->Fill(surf,pt);
-	  hDownEdgesCap->Fill(surf,useful->fCapacitorNum[surf*9+8][pt]);
+	  hDownEdgesPt->Fill(surf*8+lab*2+rco,pt);
+	  hDownEdgesCap->Fill(surf*8+lab*2+rco,capNum);
 	}
 	prevY = y;
       }
@@ -93,11 +104,12 @@ void findClockEdges(int startRun, int stopRun,char* outFilename){
     delete useful;
   }
 
+  cout << "numEntriesProcessed:" << numEntriesProcessed << endl;
 
   hDownEdgesCap->Draw("colz");
 
 
-  TFile *outFile = TFile::Open(outFilename,"recreate");
+  TFile *outFile = TFile::Open(outFilename.c_str(),"recreate");
   hDownEdgesPt->Write();
   hDownEdgesCap->Write();
   outFile->Close();
