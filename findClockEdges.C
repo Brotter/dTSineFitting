@@ -80,7 +80,7 @@ void findClockEdges(int startRun, int stopRun,string outFilename){
       cout << entry << "/" << lenEntries << "\r"; 
       fflush(stdout); }
 
-    UsefulAnitaEvent *useful = new UsefulAnitaEvent(rawEvent,WaveCalType::kFull,header);
+    UsefulAnitaEvent *useful = new UsefulAnitaEvent(rawEvent,WaveCalType::kNoCalib,header);
 
     for (int surf=0; surf<12; surf++) {
       TGraph *gSyncClock = useful->getGraphFromSurfAndChan(surf,8);

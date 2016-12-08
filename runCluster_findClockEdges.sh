@@ -11,5 +11,7 @@ for core in `seq 0 64`; do
     startRun=$((core*2+1));
     stopRun=$(((core+1)*2+1));
     echo $startRun" "$stopRun
-    root -b findClockEdges.C\(${startRun},${stopRun},\"${outputDir}/findClockEdges_${core}.root\"\) &>  ${outputDir}/logs/${core}.log &
+#    root -b findClockEdges.C\(${startRun},${stopRun},\"${outputDir}/findClockEdges_${core}.root\"\) &>  ${outputDir}/logs/${core}.log &
+    #if I am doing kNoCalib there is a ton of stupid printout
+    root -b findClockEdges.C\(${startRun},${stopRun},\"${outputDir}/findClockEdges_${core}.root\"\) &> /dev/null &
 done
