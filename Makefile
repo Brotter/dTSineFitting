@@ -21,8 +21,8 @@ LDFLAGS     = $(shell root-config --ldflags)
 LDFLAGS    += $(shell root-config --libs)
 
 ## ANITA II flags
-CXXFLAGS	 +=-I$(ANITA_UTIL_INSTALL_DIR)/include 
-LDFLAGS	 +=-L$(ANITA_UTIL_INSTALL_DIR)/lib -lAnitaEvent -lRootFftwWrapper -lMathMore  -lfftw3
+CXXFLAGS	 +=-I$(ANITA_UTIL_INSTALL_DIR)/include -I/opt/local/include
+LDFLAGS	 +=-L$(ANITA_UTIL_INSTALL_DIR)/lib -L/opt/local/lib -L/Users/brotter/Downloads/bestFit -lbest-fit -lAnitaEvent -lRootFftwWrapper -lMathMore  -lfftw3 
 
 all: $(EXE)
 

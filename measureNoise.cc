@@ -58,7 +58,7 @@ void fillStorageHists(WaveCalType::WaveCalType_t waveCalType, TH2D** storageHist
   
   
   //get the pedestal corrections I made (12 surfs, 8 chans, 4 labs, 259 samples)
-  loadPedCorrections(pedCorrections);
+  loadPedCorrections();
 
 
   //Events Waveforms
@@ -158,8 +158,8 @@ void makeStorageHists(WaveCalType::WaveCalType_t waveCalType,TH2D** storageHists
   if (waveCalType == WaveCalType::kNoCalib) {
     //mV, I think we have like a -1V to 1V range?
     numBins  =  201;
-    voltsMin = -100.0;
-    voltsMax =  100.0;
+    voltsMin = -100.5;
+    voltsMax =  100.5;
     calName  = "kNoCalib";}
   if (waveCalType == WaveCalType::kOnlyTiming) {
     //adc counts, 12 bits 2**12=4096
@@ -258,14 +258,14 @@ int main(int argc, char** argv) {
   //make storage hists, (12 surfs x 8 chans x 4 labs)
   TH2D* storageHists[12*8*4];
 
-  /*
+  
   cout << "Doing kNoCalib" << endl;
   waveCalType = WaveCalType::kNoCalib;
   makeStorageHists(waveCalType,storageHists);
   fillStorageHists(waveCalType,storageHists);
   saveStorageHists(outFile,storageHists);
   deleteStorageHists(storageHists);
-  
+  /*
   cout << "Doing kOnlyTiming" << endl;
   waveCalType = WaveCalType::kOnlyTiming;
   makeStorageHists(waveCalType,storageHists);
