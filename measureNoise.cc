@@ -53,6 +53,11 @@ void fillStorageHists(WaveCalType::WaveCalType_t waveCalType, TH2D** storageHist
   if (run==-1) {
       run = 20; //this is a pretty long run (17k events) where all the amps are off
     }  
+  char* dataDir;
+  if (run < 1000) dataDir = getenv("ANITA3_DATA");
+  else            dataDir = getenv("ANITA3_CALDATA");
+
+
 
   stringstream name;  
   
@@ -64,7 +69,7 @@ void fillStorageHists(WaveCalType::WaveCalType_t waveCalType, TH2D** storageHist
   //Events Waveforms
   TChain *rawEventTree = new TChain("eventTree","");
   name.str("");
-  name << "/Volumes/ANITA3Data/root/run" << run << "/eventFile" << run << ".root";
+  name << dataDir << "/run" << run << "/eventFile" << run << ".root";
   rawEventTree->Add(name.str().c_str());
   cout << "Adding: " << name.str() << endl;
   cout << "rawEventTree Entries: " << rawEventTree->GetEntries() << endl;
@@ -72,7 +77,7 @@ void fillStorageHists(WaveCalType::WaveCalType_t waveCalType, TH2D** storageHist
   //Event Headers
   TChain *headTree = new TChain("headTree","");
   name.str("");
-  name << "/Volumes/ANITA3Data/root/run" << run << "/headFile" << run << ".root";
+  name << dataDir << "/run" << run << "/headFile" << run << ".root";
   headTree->Add(name.str().c_str());
   cout << "Adding: " << name.str() << endl;
   cout << "headTree Entries: " << headTree->GetEntries() << endl;
@@ -85,7 +90,7 @@ void fillStorageHists(WaveCalType::WaveCalType_t waveCalType, TH2D** storageHist
   headTree->SetBranchAddress("header",&header);
 
   int lenEntries = headTree->GetEntries();
-  //  lenEntries = 1000; //uncomment for testing
+  //  lenEntries = 10000; //uncomment for testing
   for (int entry=0; entry<lenEntries; entry++) {
     if (entry%100 == 0) {
       cout << "Entry:" << entry << "/" << lenEntries << "\r";
@@ -155,7 +160,7 @@ void makeStorageHists(WaveCalType::WaveCalType_t waveCalType,TH2D** storageHists
   double voltsMin,voltsMax;
   int numBins;
   string calName;
-  if (waveCalType == WaveCalType::kNoCalib) {
+  if (waveCalType == WaveCalType::kNoCalib || waveCalType == WaveCalType::kJustUnwrap) {
     //mV, I think we have like a -1V to 1V range?
     numBins  =  201;
     voltsMin = -100.5;
@@ -173,6 +178,7 @@ void makeStorageHists(WaveCalType::WaveCalType_t waveCalType,TH2D** storageHists
     voltsMin = -200.0;
     voltsMax =  200.0;
     calName = "kFull";}
+
 
   //make the array to store them
   stringstream title,name;
@@ -258,28 +264,35 @@ int main(int argc, char** argv) {
   //make storage hists, (12 surfs x 8 chans x 4 labs)
   TH2D* storageHists[12*8*4];
 
-  
+  /*  
   cout << "Doing kNoCalib" << endl;
   waveCalType = WaveCalType::kNoCalib;
   makeStorageHists(waveCalType,storageHists);
   fillStorageHists(waveCalType,storageHists);
   saveStorageHists(outFile,storageHists);
   deleteStorageHists(storageHists);
-  /*
+
   cout << "Doing kOnlyTiming" << endl;
   waveCalType = WaveCalType::kOnlyTiming;
   makeStorageHists(waveCalType,storageHists);
   fillStorageHists(waveCalType,storageHists);
   saveStorageHists(outFile,storageHists);
   deleteStorageHists(storageHists);
-  */
+
   cout << "Doing kFull" << endl;
   waveCalType = WaveCalType::kFull;
   makeStorageHists(waveCalType,storageHists);
   fillStorageHists(waveCalType,storageHists);
   saveStorageHists(outFile,storageHists);
   deleteStorageHists(storageHists);
-
+  */
+  
+  cout << "doing a sine wave!" << endl;
+  waveCalType = WaveCalType::kJustUnwrap;
+  makeStorageHists(waveCalType,storageHists);
+  fillStorageHists(waveCalType,storageHists,10105);
+  saveStorageHists(outFile,storageHists);
+  deleteStorageHists(storageHists);
   
 
 
